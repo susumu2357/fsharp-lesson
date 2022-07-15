@@ -19,3 +19,11 @@ row.GetAs<string>("専門")
 // 課題2: 専門が数学の行だけを残そう
 df.RowsDense
 |> Series.filterValues( fun row -> row.Get("専門")="数学")
+
+// 課題3: 専門が数学の行だけを持ったFrameを作ろう
+let math_df = 
+    df.RowsDense 
+    |> Series.filterValues( fun row -> row.Get("専門")="数学")
+    |> Frame.ofRows
+
+math_df.Print()
