@@ -10,3 +10,12 @@ Frame.ReadCsv "C:\\Users\\susum\\Documents\\fsharp-lesson\\sources\\data\\シラ
 let df = Frame.ReadCsv "C:\\Users\\susum\\Documents\\fsharp-lesson\\sources\\data\\シラバス.csv"
 df.Print()
 
+// 課題1: GetとGetAsの違いを調べよう。
+let row = df.Rows.GetAt(0)
+row.Get("専門")
+row.GetAs("専門")
+row.GetAs<string>("専門")
+
+// 課題2: 専門が数学の行だけを残そう
+df.RowsDense
+|> Series.filterValues( fun row -> row.Get("専門")="数学")
