@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "f/fnnkBo0T1OxtrKyR/Bi4Q8ZS3enxh0lr6lxc79BDeuD1vVsZhdz0n8uAf0xQdUOd2vg+9ojZwzPYAqkWBC+g==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\susum\\Documents\\fsharp-lesson\\sources\\play_library\\PlayDeedle\\PlayDeedle.fsproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\susum\\.nuget\\packages\\fsharp.core\\6.0.5\\fsharp.core.6.0.5.nupkg.sha512"
+  ],
+  "logs": []
+}
