@@ -35,16 +35,25 @@ selected_df.Print()
 // 課題5: フィルタとプロジェクションを関数にしよう
 type Row = ObjectSeries<string>
 and ConditionFunc = Row -> bool
-and ColumnsList = string list
+and Filter = ConditionFunc ->  Frame<int, string> -> Frame<int, string>
 
-let filter (conditionFunc: ConditionFunc) (df: Frame<int, string>) =
+let filter:Filter =
+    fun conditionFunc df -> 
     df.RowsDense 
     |> Series.filterValues( conditionFunc )
     |> Frame.ofRows
 
-let conditionFunc = 
-    fun row: Row -> row.Get("専門")="物理"
+let myconditionFunc: ConditionFunc = 
+    fun row -> row.Get("専門")="物理"
 
+let filteredFrame = filter myconditionFunc df
+filteredFrame.Print()
 
-let project df: FrameData columns: ColumnsList =
-    df.Columns[columns]
+type ColumnsList = string list
+and Project = ColumnsList -> Frame<int, string> -> Frame<int, string>
+
+let project: Project =
+    fun columns df -> df.Columns[columns]
+
+let projectedFrame = project ["専門"; "学年"] df
+projectedFrame.Print()
