@@ -27,3 +27,24 @@ let math_df =
     |> Frame.ofRows
 
 math_df.Print()
+
+// 課題4: 場所と学年だけのFrameを作ろう
+let selected_df = df.Columns[["場所"; "学年"]]
+selected_df.Print()
+
+// 課題5: フィルタとプロジェクションを関数にしよう
+type Row = ObjectSeries<string>
+and ConditionFunc = Row -> bool
+and ColumnsList = string list
+
+let filter (conditionFunc: ConditionFunc) (df: Frame<int, string>) =
+    df.RowsDense 
+    |> Series.filterValues( conditionFunc )
+    |> Frame.ofRows
+
+let conditionFunc = 
+    fun row: Row -> row.Get("専門")="物理"
+
+
+let project df: FrameData columns: ColumnsList =
+    df.Columns[columns]
