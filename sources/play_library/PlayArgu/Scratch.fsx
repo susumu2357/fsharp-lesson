@@ -21,7 +21,7 @@ parser.Parse[| "--foo" |]
 parser.Parse[| "--foo"; "fugafuga" |]
 
 let res = parser.Parse[| "--foo"; "ikaika" |]
-
+res.GetAllResults()
 res.Contains Hoge
 res.Contains Foo
 
