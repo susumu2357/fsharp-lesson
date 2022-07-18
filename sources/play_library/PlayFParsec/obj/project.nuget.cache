@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "V/opfSE0gL/53LTZMEcJ8I79smqped9nnOVp8i3avHDycNYdBZR8ut6DKVcK7NRQGIh4zOKoj05HFGWsp2EAWg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\susum\\Documents\\fsharp-lesson\\sources\\play_library\\PlayFParsec\\PlayFParsec.fsproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\susum\\.nuget\\packages\\fsharp.core\\6.0.5\\fsharp.core.6.0.5.nupkg.sha512"
+  ],
+  "logs": []
+}
