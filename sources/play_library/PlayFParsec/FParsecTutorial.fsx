@@ -77,3 +77,75 @@ run numberListFile "[1, 2, 3] [4]"
 run numberList "[1, 2, 3] [4]"
 
 // 4.7 Parsing string data
+run (many (str "a" <|> str "b")) "abba"
+
+run (skipStringCI "<float>" >>. pfloat) "<FLOAT>1.0"
+
+let identifier =
+    let isIdentifierFirstChar c = isLetter c || c = '_'
+    let isIdentifierChar c = isLetter c || isDigit c || c = '_'
+
+    many1Satisfy2L isIdentifierFirstChar isIdentifierChar "identifier"
+    .>> ws // skips trailing whitespace
+
+run identifier "id_1"
+run identifier "_1"
+run identifier "1abc"
+run identifier ""
+
+let stringLiteral =
+    let normalChar = satisfy (fun c -> c <> '\\' && c <> '"')
+    let unescape c = match c with
+                     | 'n' -> '\n'
+                     | 'r' -> '\r'
+                     | 't' -> '\t'
+                     | c   -> c
+    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> unescape)
+    between (pstring "\"") (pstring "\"") (manyChars (normalChar <|> escapedChar))
+
+run stringLiteral "\"abc\""
+run stringLiteral "\"ab\t\""
+
+let stringLiteral2 =
+    let normalCharSnippet = many1Satisfy (fun c -> c <> '\\' && c <> '"')
+    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> function
+                                                           | 'n' -> "\n"
+                                                           | 'r' -> "\r"
+                                                           | 't' -> "\t"
+                                                           | c   -> string c)
+    between (pstring "\"") (pstring "\"") (manyStrings (normalCharSnippet <|> escapedChar))
+
+run stringLiteral2 "\"abc\""
+run stringLiteral2 "\"abc\n\""
+
+let stringLiteral3 =
+    let normalCharSnippet = many1Satisfy (fun c -> c <> '\\' && c <> '"')
+    let escapedChar = pstring "\\" >>. (anyOf "\\nrt\"" |>> function
+                                                           | 'n' -> "\n"
+                                                           | 'r' -> "\r"
+                                                           | 't' -> "\t"
+                                                           | c   -> string c)
+    between (pstring "\"") (pstring "\"")  (stringsSepBy normalCharSnippet escapedChar)
+
+run stringLiteral3 "\"abc\""
+run stringLiteral3 "\"abc\n\""
+
+// 4.8 Sequentially applying parsers
+let product = pipe2 float_ws (str_ws "*" >>. float_ws) (fun x y -> x * y)
+run product "2*3"
+run product "10*3"
+
+type StringConstant = StringConstant of string * string
+let stringConstant = pipe3 identifier (str_ws "=") stringLiteral (fun id _ str -> StringConstant(id, str))
+run stringConstant "myString = \"stringValue\""
+run stringConstant "myString = \"stringValue123\""
+
+run (float_ws .>>. (str_ws "," >>. float_ws)) "123, 456"
+
+// 4.9 Parsing alternatives
+let boolean = (stringReturn "true"  true) <|> (stringReturn "false" false)
+run boolean "false"
+run boolean "fal"
+
+run  ((ws >>. str "a") <|> (ws >>. str "b")) " b"
+run  (ws >>.  (str "a" <|> str "b")) " b"
