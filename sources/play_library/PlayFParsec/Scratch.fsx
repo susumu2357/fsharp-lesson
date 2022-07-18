@@ -32,3 +32,14 @@ run pColumn2 " 　[名前]  　"
 // カッコの内側のスペースはそのままパース
 run pColumn2 " 　[名 前]  　"
 run pColumn2 " 　[名前　学年]  　"
+
+
+// 課題11: projectのパーサーを書こう
+let eachColumn = sepBy pColumn2 (pstring ",")
+let pProjcet = ws2 >>. (str_ws2 "project") >>. (str_ws2 "(") >>. eachColumn .>> (str_ws2 ")")
+
+run pProjcet "project([場所], [学年])"
+run pProjcet " 　project ( 　[場所]　 , [学年] 　) "
+
+// 「返す型もちゃんと作りましょう。」というリクエストがよく分からず、特に実装していないです。
+// pProjectのreturnは、ParserResult<string list,unit>ですが、Successの場合に新しく定義したProject型で値を返すという感じでしょうか？
