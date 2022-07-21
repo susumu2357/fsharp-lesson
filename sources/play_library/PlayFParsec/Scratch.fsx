@@ -52,3 +52,27 @@ run pidentifier "abc123"
 run pidentifier "123abc"
 run pidentifier "a_b"
 run pidentifier "_a"
+
+// 課題12: filterのパーサーを書こう
+// 仕切り直しで、wsとstr_wsを新たに定義しています。
+let ws = manyChars (anyOf [' '; '　'])
+let str_ws s = pstring s .>> ws
+
+let notBracket = satisfy (fun c -> c <> ']')
+let colParser = (pstring "[") >>. (manyChars notBracket) .>> (str_ws "]")
+
+let notQuotation = satisfy (fun c -> c <> '\"')
+let valParser = (pstring "\"") >>. (manyChars notQuotation) .>> (str_ws "\"")
+
+let filterArgs = colParser .>>. (str_ws "=" >>. valParser)
+
+let pFilter = ws >>. (str_ws "filter") >>. (str_ws "(") >>. filterArgs .>> (str_ws ")")
+
+// returnはstring*string
+run pFilter "filter([専門] = \"物理\")"
+
+// カッコの中身、引用符の中身以外の空白は無視
+run pFilter " 　filter ( 　[専門] 　=   \"物理\"　) 　"
+
+// カッコの中身、引用符の中身の空白はそのままパース
+run pFilter "filter([専 　門] = \"物理　　数学　\")"
