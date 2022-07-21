@@ -76,3 +76,23 @@ run pFilter " 　filter ( 　[専門] 　=   \"物理\"　) 　"
 
 // カッコの中身、引用符の中身の空白はそのままパース
 run pFilter "filter([専 　門] = \"物理　　数学　\")"
+
+// 課題13: pFilterのパーサーの返す型を作ろう
+type FilterExpression = 
+    {
+        Column: string
+        Value: string
+    }
+
+let toFilterExpression result =
+        let column, value = result
+        {Column=column; Value=value}
+
+let pFilterwithType = 
+    pFilter
+    |>> toFilterExpression
+
+run pFilterwithType "filter([専門] = \"物理\")"
+run pFilterwithType " 　filter ( 　[専門] 　=   \"物理\"　) 　"
+
+run pFilterwithType "filter([専門])"
