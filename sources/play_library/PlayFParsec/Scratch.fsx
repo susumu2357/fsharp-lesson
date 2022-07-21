@@ -96,3 +96,34 @@ run pFilterwithType "filter([専門] = \"物理\")"
 run pFilterwithType " 　filter ( 　[専門] 　=   \"物理\"　) 　"
 
 run pFilterwithType "filter([専門])"
+
+// 課題14: pProjectも型を作って返すようにし、projectとfilterの両方をパースするpExpressionを作る
+// 仕切り直しで、pProjcetを新たに定義しています。内容は課題11と同じです。
+let notBracket = satisfy (fun c -> c <> ']')
+let columns = (pstring "[") >>. (manyChars notBracket) .>> (str_ws "]")
+let pColumn = ws >>. columns
+
+let columnList = sepBy pColumn (pstring ",")
+let pProjcet = ws >>. (str_ws "project") >>. (str_ws "(") >>. columnList .>> (str_ws ")")
+
+type ProjectExpression = 
+    SelectedColumns of string list
+
+let toProjectExpression result =
+    SelectedColumns result
+
+let pProjcetwithType = 
+    pProjcet
+    |>> toProjectExpression
+
+run pProjcetwithType "project([学年], [名前])"
+
+type Expression =
+    | FilterExpression
+    | ProjectExpression
+
+// The type 'FilterExpression' does not match the type 'ProjectExpression'
+let pExpression = pFilterwithType <|> pProjcetwithType
+
+// The type 'Expression' does not match the type 'FilterExpression'
+let pExpressio: Parser<Expression, Unit> = pFilterwithType <|> pProjcetwithType
