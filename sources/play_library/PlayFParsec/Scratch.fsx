@@ -43,3 +43,12 @@ run pProjcet " 　project ( 　[場所]　 , [学年] 　) "
 
 // 「返す型もちゃんと作りましょう。」というリクエストがよく分からず、特に実装していないです。
 // pProjectのreturnは、ParserResult<string list,unit>ですが、Successの場合に新しく定義したProject型で値を返すという感じでしょうか？
+
+// 課題 10.1 pidentifierを書け
+// 後から追加された課題なので、課題11の後に解いています。
+let letterOrDigit c = isLetter c || isDigit c
+let pidentifier = many1Satisfy2 isLetter letterOrDigit
+run pidentifier "abc123"
+run pidentifier "123abc"
+run pidentifier "a_b"
+run pidentifier "_a"
