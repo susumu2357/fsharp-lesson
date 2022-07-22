@@ -119,11 +119,24 @@ let pProjcetwithType =
 run pProjcetwithType "project([学年], [名前])"
 
 type Expression =
-    | FilterExpression
-    | ProjectExpression
+    | Filter of FilterExpression
+    | Project of ProjectExpression
 
 // The type 'FilterExpression' does not match the type 'ProjectExpression'
 let pExpression = pFilterwithType <|> pProjcetwithType
 
 // The type 'Expression' does not match the type 'FilterExpression'
 let pExpressio: Parser<Expression, Unit> = pFilterwithType <|> pProjcetwithType
+
+let pFilterwithType = 
+    pFilterwithType
+    |>> Filter
+
+let pProjcetwithType = 
+    pProjcetwithType
+    |>> Project
+
+let pExpression = pFilterwithType <|> pProjcetwithType
+
+run pExpression "project([学年], [名前])"
+run pExpression "filter([専門] = \"物理\")"
