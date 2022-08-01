@@ -41,3 +41,25 @@ Regex.Match("(abc)", identifierRegex)
 
 // abcのみマッチ
 Regex.Match("abc+def", identifierRegex)
+
+// pColumnの実装
+#r "nuget:FParsec"
+open FParsec
+
+let pIdentifier = regex identifierRegex
+run pIdentifier "abc"
+
+let notSBracket s = s <> '[' && s <> ']'
+
+let pSBracketColumn =
+    (pstring "[") >>. many1Satisfy notSBracket
+    .>> (pstring "]")
+
+let pColumn = pIdentifier <|> pSBracketColumn
+run pColumn "[abc_123]"
+
+// 角括弧の中身全体をパース
+run pColumn "[123_abc]"
+
+// Failure
+run pColumn "123_abc"
