@@ -63,3 +63,44 @@ run pColumn "[123_abc]"
 
 // Failure
 run pColumn "123_abc"
+
+
+// expressionの暫定的な仕様
+
+// pColumnListを定義していなかったので、そちらを先に準備
+let ws = manyChars (anyOf [ ' '; '　' ])
+let str_ws s = pstring s .>> ws
+
+type ColumnList = ColumnList of string list
+
+let pColumnList = sepBy pColumn (str_ws ",") |>> ColumnList
+
+run pColumnList "a, b, [123_abc]"
+
+type Expression =
+    | Identifier of string
+    | ProjectExpression of Expression * ColumnList
+
+let pExpression, pExpressionRef = createParserForwardedToRef ()
+
+let pProjectExpression =
+    let expression =
+        (str_ws "project")
+        >>. (str_ws "(")
+        >>. pExpression
+        .>> (str_ws ")")
+
+    expression .>>. pColumnList |>> ProjectExpression
+
+let pIdentifierwithType = pIdentifier |>> Identifier
+
+pExpressionRef.Value <- pProjectExpression <|> pIdentifierwithType
+
+// ProjectExpression (Identifier "シラバス", ColumnList ["専門"; "学年"; "場所"])
+run pProjectExpression "project (シラバス) 専門, 学年, 場所"
+
+// ProjectExpression (ProjectExpression (Identifier "シラバス", ColumnList ["専門"; "学年"; "場所"]), ColumnList ["専門"; "学年"])
+run pProjectExpression "project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
+
+// ProjectExpression (ProjectExpression (Identifier "シラバス", ColumnList ["123_専門"]), ColumnList ["専門"; "学年"])
+run pProjectExpression "project (project (シラバス) [123_専門]) 専門, 学年"
