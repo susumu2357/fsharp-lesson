@@ -103,3 +103,14 @@ let test2ProjectExpression =
 
 let test2Df = evalProjectExpression test2ProjectExpression
 test2Df.Print()
+
+// rowをdistinctにする
+let distinctFrame (df: Frame<int, string>) =
+    df.Rows
+    |> Series.values
+    |> Seq.distinct
+    |> Series.ofValues
+    |> Frame.ofRows
+
+let distinctDf = distinctFrame test2Df
+distinctDf.Print()
