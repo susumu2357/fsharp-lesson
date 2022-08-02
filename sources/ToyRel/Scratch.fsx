@@ -43,9 +43,9 @@ let pProjectExpression =
 
     expression .>>. pColumnList |>> ProjectExpression
 
-let pIdentifierwithType = pIdentifier |>> Identifier
+let pIdentifierExpression = pIdentifier |>> Identifier
 
-pExpressionRef.Value <- pProjectExpression <|> pIdentifierwithType
+pExpressionRef.Value <- pProjectExpression <|> pIdentifierExpression
 
 // ProjectExpression (Identifier "シラバス", ColumnList ["専門"; "学年"; "場所"])
 run pProjectExpression "project (シラバス) 専門, 学年, 場所"
