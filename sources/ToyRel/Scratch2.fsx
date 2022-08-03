@@ -58,18 +58,16 @@ let paserResult parser str =
 module Relation =
     type T = Relation of Frame<int, string>
 
-    let create df = Relation df
-
-    let value (Relation rel) = rel
-
-    let print rel = (value rel).Print()
-
-    let distinct (df: Frame<int, string>) =
+    let create (df: Frame<int, string>) =
         df.Rows.Values
         |> Seq.distinct
         |> Series.ofValues
         |> Frame.ofRows
         |> Relation
+
+    let value (Relation rel) = rel
+
+    let print rel = (value rel).Print()
 
     let openRelation relationName =
         match paserResult pIdentifierExpression relationName with
@@ -79,7 +77,7 @@ module Relation =
                 + identifier
                 + ".csv"
 
-            Frame.ReadCsv filepath |> distinct
+            Frame.ReadCsv filepath |> create
         | _ -> failwithf "Failure"
 
 
@@ -98,7 +96,7 @@ and evalProjectExpression: EvalProjectExpression =
         let rel = evalExpression exp
         let (ColumnList columns) = columnList
         let df = Relation.value rel
-        Relation.distinct df.Columns.[columns]
+        Relation.create df.Columns.[columns]
 
 
 let project str =
