@@ -104,8 +104,8 @@ let test2ProjectExpression =
 let test2Df = evalProjectExpression test2ProjectExpression
 test2Df.Print()
 
-// rowをdistinctにする
-let distinctFrame (df: Frame<int, string>) =
+// 課題2: dfのrowを一意にしたdf2を返す、distinctを作れ
+let distinct (df: Frame<int, string>) =
     df.Rows.Values
     |> Seq.distinct
     |> Series.ofValues
@@ -116,5 +116,5 @@ let distinctFrame (df: Frame<int, string>) =
 // |> Series.ofValues
 // |> Frame.ofRows
 
-let distinctDf = distinctFrame test2Df
+let distinctDf = distinct test2Df
 distinctDf.Print()
