@@ -47,30 +47,17 @@ let pIdentifierExpression = pIdentifier |>> Identifier
 
 pExpressionRef.Value <- pProjectExpression <|> pIdentifierExpression
 
-type EvalExpression = Expression -> Frame<int, string>
-and EvalProjectExpression = ProjectExpression -> Frame<int, string>
-
-let rec evalExpression: EvalExpression =
-    fun exp ->
-        match exp with
-        | Identifier identifier ->
-            let filepath =
-                ".\\sources\\ToyRel\\database\\master\\"
-                + identifier
-                + ".csv"
-
-            Frame.ReadCsv filepath
-        | ProjectExpression projectExpression -> evalProjectExpression projectExpression
-
-and evalProjectExpression: EvalProjectExpression =
-    fun projectExp ->
-        let (exp, columnList) = projectExp
-        let df = evalExpression exp
-        let (ColumnList columns) = columnList
-        df.Columns[columns]
-
 // ここから本題
 type Relation = Relation of Frame<int, string>
+
+// 以前つくったpaserResultを変形
+let paserResult parser str =
+    match run parser str with
+    | CharParsers.Success (result, _, _) ->
+        match result with
+        | ProjectExpression projectExpression -> (ProjectExpression projectExpression)
+        | Identifier identifier -> (Identifier identifier)
+    | CharParsers.Failure (errorMsg, _, _) -> failwithf "Failure: %s" errorMsg
 
 let distinct (df: Frame<int, string>) =
     df.Rows.Values
@@ -79,35 +66,53 @@ let distinct (df: Frame<int, string>) =
     |> Frame.ofRows
     |> Relation
 
-let df = Frame.ReadCsv ".\\sources\\ToyRel\\database\\master\\シラバス.csv"
-let test1Relation = distinct df
+let openRelation str =
+    match paserResult pIdentifierExpression str with
+    | Identifier identifier ->
+        let filepath =
+            ".\\sources\\ToyRel\\database\\master\\"
+            + identifier
+            + ".csv"
 
-// test1Relation.Print()
-// The type 'Relation' does not define the field, constructor or member 'Print'.
+        Frame.ReadCsv filepath |> distinct
+    | _ -> failwithf "Failure"
 
-let (Relation backToDf) = test1Relation
-backToDf.Print()
+let test1Rel = openRelation "シラバス"
+test1Rel
 
-// 以前つくったpaserResultを変形
-let paserResult parser str =
-    match run parser str with
-    | CharParsers.Success (result, _, _) ->
-        match result with
+type EvalExpression = Expression -> Relation
+type EvalProjectExpression = ProjectExpression -> Relation
+
+let toDf rel =
+    let (Relation df) = rel
+    df
+
+// let toRel df = Relation df
+
+let rec evalExpression: EvalExpression =
+    fun exp ->
+        match exp with
+        | Identifier identifier -> openRelation identifier
         | ProjectExpression projectExpression -> evalProjectExpression projectExpression
-        | Identifier identifier -> evalExpression (Identifier identifier)
-    | CharParsers.Failure (errorMsg, _, _) -> failwithf "Failure: %s" errorMsg
 
-// partial application
-let project = paserResult pProjectExpression
+and evalProjectExpression: EvalProjectExpression =
+    fun projectExp ->
+        let (exp, columnList) = projectExp
+        let rel = evalExpression exp
+        let (ColumnList columns) = columnList
+        let df = toDf rel
+        distinct df.Columns.[columns]
+
+
+let project str =
+    let exp = paserResult pProjectExpression str
+
+    match exp with
+    | ProjectExpression projectExpression -> evalProjectExpression projectExpression
+    | _ -> failwithf "Failure"
+
 
 let test2Df = project "project (シラバス) 専門, 学年, 場所"
-test2Df.Print()
+(toDf test2Df).Print()
 let test3Df = project "project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
-test3Df.Print()
-
-// partial application and function composition
-let openRelation = paserResult pExpression >> distinct
-
-let test2Relation = openRelation "シラバス"
-let (Relation backToDf2) = test2Relation
-backToDf2.Print()
+(toDf test3Df).Print()
