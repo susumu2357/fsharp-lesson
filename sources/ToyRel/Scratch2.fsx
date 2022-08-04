@@ -80,6 +80,8 @@ module Relation =
             Frame.ReadCsv filepath |> create
         | _ -> failwithf "Failure"
 
+    let project (Relation df) (columns: string list) = create df.Columns.[columns]
+
 
 type EvalExpression = Expression -> Relation.T
 type EvalProjectExpression = ProjectExpression -> Relation.T
@@ -95,8 +97,7 @@ and evalProjectExpression: EvalProjectExpression =
         let (exp, columnList) = projectExp
         let rel = evalExpression exp
         let (ColumnList columns) = columnList
-        let df = Relation.value rel
-        Relation.create df.Columns.[columns]
+        Relation.project rel columns
 
 
 let project str =
