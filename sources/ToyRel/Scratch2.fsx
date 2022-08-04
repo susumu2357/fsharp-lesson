@@ -131,9 +131,10 @@ char (r.Next((int 'a'), (int 'z') + 1))
 let randName unit =
     let randomChars =
         [ for x in 0..3 do
-              char (r.Next((int 'a'), (int 'z') + 1)) ]
+              string (char (r.Next((int 'a'), (int 'z') + 1))) ]
 
     "zz"
-    + List.fold (fun acc elem -> acc + string elem) "" randomChars
+    // + List.fold (fun acc elem -> acc + string elem) "" randomChars
+    + String.concat "" randomChars
 
 randName ()
