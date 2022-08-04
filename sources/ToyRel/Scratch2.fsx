@@ -55,6 +55,8 @@ let paserResult parser str =
     | CharParsers.Failure (errorMsg, _, _) -> failwithf "Failure: %s" errorMsg
 
 // ここから本題
+let databasePath = ".\\sources\\ToyRel\\database\\master\\"
+
 module Relation =
     type T = Relation of Frame<int, string>
 
@@ -81,6 +83,10 @@ module Relation =
         | _ -> failwithf "Failure"
 
     let project (Relation df) (columns: string list) = create df.Columns.[columns]
+
+    let save rel basename =
+        let df = value rel
+        df.SaveCsv(databasePath + basename + ".csv")
 
 
 type EvalExpression = Expression -> Relation.T
@@ -109,3 +115,7 @@ let project str =
 
 let testRel = project "project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
 Relation.print testRel
+
+// 課題5: まずは指定されたファイル名で保存する関数を作る
+let testRel1 = project "project (シラバス) 専門, 学年"
+Relation.save testRel1 "test"
