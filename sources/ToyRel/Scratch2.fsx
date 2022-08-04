@@ -119,3 +119,21 @@ Relation.print testRel
 // 課題5: まずは指定されたファイル名で保存する関数を作る
 let testRel1 = project "project (シラバス) 専門, 学年"
 Relation.save testRel1 "test"
+
+// Randomクラスをいじる
+open System
+
+let r = Random()
+r.Next((int 'a'), (int 'z') + 1)
+char (r.Next((int 'a'), (int 'z') + 1))
+
+// 課題6: ランダムのファイル名を生成しよう
+let randName unit =
+    let randomChars =
+        [ for x in 0..3 do
+              char (r.Next((int 'a'), (int 'z') + 1)) ]
+
+    "zz"
+    + List.fold (fun acc elem -> acc + string elem) "" randomChars
+
+randName ()
