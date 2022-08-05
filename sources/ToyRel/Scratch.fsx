@@ -5,10 +5,12 @@ open Deedle
 open FParsec
 
 // 前回の再掲
+let ws = manyChars (anyOf [ ' '; '　' ])
+
 let identifierRegex =
     "^([a-zA-Z_]|\p{IsHiragana}|\p{IsKatakana}|\p{IsCJKUnifiedIdeographs})+([a-zA-Z_]|\p{IsHiragana}|\p{IsKatakana}|\p{IsCJKUnifiedIdeographs}|[0-9])*"
 
-let pIdentifier = regex identifierRegex
+let pIdentifier = regex identifierRegex .>> ws
 let notSBracket s = s <> '[' && s <> ']'
 
 let pSBracketColumn =
@@ -18,7 +20,6 @@ let pSBracketColumn =
 let pColumn = pIdentifier <|> pSBracketColumn
 run pColumn "[abc_123]"
 
-let ws = manyChars (anyOf [ ' '; '　' ])
 let str_ws s = pstring s .>> ws
 
 type ColumnList = ColumnList of string list
@@ -33,7 +34,10 @@ and ProjectExpression = Expression * ColumnList
 // Statement型を導入
 type Statement =
     | PrintStmt of string
+    | AssignStmt of AssignStmt
     | Expression of Expression
+
+and AssignStmt = Expression * Expression
 
 let pExpression, pExpressionRef = createParserForwardedToRef ()
 
@@ -146,16 +150,37 @@ let evalPrintStmt identifier =
 // 新しいケースをStatement型として返すパーサーと、その型を評価するeval...関数を書く。
 // 下記のpStmtにパーサーを足す。
 // 下記のevalに新しい分岐を加えて、eval...関数による処理を足す。
+// なお、RelationのI/O周りはRelation moduleに入れる。
 
-let pStmt = pPrintStmt <|> pProjectStmt <|> pIdentifierStmt
+// 課題8: 左辺を含むExpressionのパース
+// 以下をパースする場合、右辺の結果をtest_relation.csvとして保存するようにしたい。
+// test_relation = project (project (シラバス) 専門, 学年, 場所) 専門, 学年
+// assignStmtと呼ぶことにする。
+
+let passignStmt =
+    pExpression .>>. ((str_ws "=") >>. pExpression)
+    |>> AssignStmt
+
+let evalAssignStmt (basename, expression) =
+    match basename with
+    | Identifier identifier ->
+        let rel = evalExpression expression
+        Relation.saveAs rel identifier
+    | _ -> failwithf "Failure"
+
+let pStmt =
+    pPrintStmt
+    <|> pProjectStmt
+    <|> passignStmt
+    <|> pIdentifierStmt
 
 let eval str =
     match paserResult pStmt str with
     | PrintStmt printStmt -> evalPrintStmt printStmt
+    | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
     | Expression exp ->
         match exp with
         | ProjectExpression projectExpression ->
-            printfn "a"
             let rel = evalProjectExpression projectExpression
             Relation.save rel
         | Identifier identifier ->
@@ -164,4 +189,7 @@ let eval str =
 
 eval "print シラバス"
 eval "project (シラバス) 名前, 学年"
+eval "project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
 eval "シラバス"
+
+eval "test_relation = project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
