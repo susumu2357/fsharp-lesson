@@ -179,7 +179,7 @@ let listing path =
         [ for x in files do
               System.IO.Path.GetFileNameWithoutExtension x ]
 
-    List.iter (printfn "%s") names
+    List.iteri (printfn "%2i: %s") names
 
 let pStmt =
     pPrintStmt
