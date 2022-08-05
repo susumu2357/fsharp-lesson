@@ -35,6 +35,7 @@ and ProjectExpression = Expression * ColumnList
 type Statement =
     | PrintStmt of string
     | AssignStmt of AssignStmt
+    | ListingStmt of string
     | Expression of Expression
 
 and AssignStmt = Expression * Expression
@@ -168,8 +169,23 @@ let evalAssignStmt (basename, expression) =
         Relation.saveAs rel identifier
     | _ -> failwithf "Failure"
 
+let pListingStmt =
+    let stmt = str_ws "list"
+
+    stmt |>> ListingStmt
+
+let listing path =
+    let files = System.IO.Directory.GetFiles(path, "*.csv")
+
+    let names =
+        [ for x in files do
+              System.IO.Path.GetFileNameWithoutExtension x ]
+
+    List.iter (printfn "%s") names
+
 let pStmt =
     pPrintStmt
+    <|> pListingStmt
     <|> pProjectStmt
     <|> passignStmt
     <|> pIdentifierStmt
@@ -178,6 +194,7 @@ let eval str =
     match paserResult pStmt str with
     | PrintStmt printStmt -> evalPrintStmt printStmt
     | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
+    | ListingStmt _ -> listing databasePath
     | Expression exp ->
         match exp with
         | ProjectExpression projectExpression ->
@@ -193,3 +210,4 @@ eval "project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
 eval "シラバス"
 
 eval "test_relation = project (project (シラバス) 専門, 学年, 場所) 専門, 学年"
+eval "list"
