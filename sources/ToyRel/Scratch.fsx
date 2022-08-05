@@ -159,7 +159,8 @@ let evalPrintStmt identifier =
 // assignStmtと呼ぶことにする。
 
 let passignStmt =
-    pExpression .>>. ((str_ws "=") >>. pExpression)
+    pIdentifierExpression
+    .>>. ((str_ws "=") >>. pExpression)
     |>> AssignStmt
 
 let evalAssignStmt (basename, expression) =
