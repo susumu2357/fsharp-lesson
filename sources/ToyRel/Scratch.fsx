@@ -116,7 +116,7 @@ module Relation =
     let save rel =
         let rndName = randName ()
         saveAs rel rndName
-        printfn "Relation %s returned." rndName
+        rndName
 
 type EvalExpression = Expression -> Relation.T
 type EvalProjectExpression = ProjectExpression -> Relation.T
@@ -182,7 +182,7 @@ let eval str =
         match exp with
         | ProjectExpression projectExpression ->
             let rel = evalProjectExpression projectExpression
-            Relation.save rel
+            printfn "Relation %s returned." (Relation.save rel)
         | Identifier identifier ->
             printfn "Only relation name is provided."
             printfn "Do you mean \"print\" ?"
