@@ -26,9 +26,10 @@ type ColumnList = ColumnList of string list
 let pColumnList = sepBy pColumn (str_ws ",") |>> ColumnList
 
 type Expression =
-    | Identifier of Identifier: string
+    | Identifier of IdentifierType
     | ProjectExpression of ProjectExpression
 
+and IdentifierType = string
 and ProjectExpression = Expression * ColumnList
 
 // Statement型を導入
@@ -38,7 +39,7 @@ type Statement =
     | ListingStmt of string
     | Expression of Expression
 
-and AssignStmt = Expression * Expression
+and AssignStmt = IdentifierType * Expression
 
 let pExpression, pExpressionRef = createParserForwardedToRef ()
 
@@ -159,16 +160,12 @@ let evalPrintStmt identifier =
 // assignStmtと呼ぶことにする。
 
 let passignStmt =
-    pIdentifierExpression
-    .>>. ((str_ws "=") >>. pExpression)
+    pIdentifier .>>. ((str_ws "=") >>. pExpression)
     |>> AssignStmt
 
 let evalAssignStmt (basename, expression) =
-    match basename with
-    | Identifier identifier ->
-        let rel = evalExpression expression
-        Relation.saveAs rel identifier
-    | _ -> failwithf "Failure"
+    let rel = evalExpression expression
+    Relation.saveAs rel basename
 
 let pListingStmt =
     let stmt = str_ws "list"
