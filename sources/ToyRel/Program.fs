@@ -1,2 +1,7 @@
-﻿// For more information see https://aka.ms/fsharp-console-apps
-printfn "Hello from F#"
+﻿open Eval
+
+[<EntryPoint>]
+let main args =
+    // printfn "first argument: %s" args[0]
+    eval args[0]
+    0

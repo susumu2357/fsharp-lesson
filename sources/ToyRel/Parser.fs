@@ -33,7 +33,7 @@ let pProjectExpression =
 
     expression .>>. pColumnList |>> ProjectExpression
 
-let pIdentifierExpression = pIdentifier |>> Identifier
+let pIdentifierExpression = pIdentifier |>> Expression.Identifier
 
 pExpressionRef.Value <- pProjectExpression <|> pIdentifierExpression
 

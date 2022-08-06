@@ -1,14 +1,15 @@
 module Common
 
-let databasePath = ".\\sources\\ToyRel\\database\\master\\"
+// let databasePath = ".\\sources\\ToyRel\\database\\master\\"
+let databasePath = ".\\database\\master\\"
 
 type ColumnList = ColumnList of string list
 
 type Expression =
-    | Identifier of IdentifierType
+    | Identifier of Identifier
     | ProjectExpression of ProjectExpression
 
-and IdentifierType = string
+and Identifier = string
 and ProjectExpression = Expression * ColumnList
 
 type Statement =
@@ -17,4 +18,4 @@ type Statement =
     | ListingStmt of string
     | Expression of Expression
 
-and AssignStmt = IdentifierType * Expression
+and AssignStmt = Identifier * Expression

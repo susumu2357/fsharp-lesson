@@ -37,9 +37,8 @@ module Relation =
             match exp with
             | Identifier identifier ->
                 let filepath =
-                    ".\\sources\\ToyRel\\database\\master\\"
-                    + identifier
-                    + ".csv"
+                    // ".\\sources\\ToyRel\\database\\master\\"
+                    ".\\database\\master\\" + identifier + ".csv"
 
                 Frame.ReadCsv filepath |> create
             | _ -> failwithf "Failure"
