@@ -4,7 +4,6 @@ open System
 open Deedle
 
 open Common
-open Parser
 
 let r = Random()
 
@@ -32,17 +31,9 @@ module Relation =
     let print rel = (value rel).Print()
 
     let openRelation relationName =
-        match paserResult pIdentifierStmt relationName with
-        | Expression exp ->
-            match exp with
-            | Identifier identifier ->
-                let filepath =
-                    // ".\\sources\\ToyRel\\database\\master\\"
-                    ".\\database\\master\\" + identifier + ".csv"
+        let filepath = ".\\database\\master\\" + relationName + ".csv"
 
-                Frame.ReadCsv filepath |> create
-            | _ -> failwithf "Failure"
-        | _ -> failwithf "Failure"
+        Frame.ReadCsv filepath |> create
 
     let project (Relation df) (columns: string list) = create df.Columns.[columns]
 
