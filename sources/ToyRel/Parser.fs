@@ -54,9 +54,15 @@ let pListingStmt =
 
     stmt |>> ListingStmt
 
+let pQuitStmt =
+    let stmt = str_ws "quit"
+
+    stmt |>> QuitStmt
+
 let pStmt =
     pPrintStmt
     <|> pListingStmt
+    <|> pQuitStmt
     <|> pProjectStmt
     <|> passignStmt
     <|> pIdentifierStmt

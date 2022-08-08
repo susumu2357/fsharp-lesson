@@ -1,5 +1,7 @@
 module Eval
 
+open System
+
 open Common
 open Relation
 open Parser
@@ -43,6 +45,7 @@ let eval str =
     | PrintStmt printStmt -> evalPrintStmt printStmt
     | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
     | ListingStmt _ -> listing databasePath
+    | QuitStmt _ -> Environment.Exit 1
     | Expression exp ->
         match exp with
         | ProjectExpression projectExpression ->

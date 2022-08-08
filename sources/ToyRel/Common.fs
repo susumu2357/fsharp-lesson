@@ -16,6 +16,7 @@ type Statement =
     | PrintStmt of string
     | AssignStmt of AssignStmt
     | ListingStmt of string
+    | QuitStmt of string
     | Expression of Expression
 
 and AssignStmt = Identifier * Expression
