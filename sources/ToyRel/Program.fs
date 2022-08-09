@@ -1,28 +1,10 @@
 ﻿open RadLine
 open System
-
-open Common
-open StateM
 open Eval
 
 [<EntryPoint>]
 let main _ =
-    let dbInit = Database "master"
-
-    let state = State()
-
-    let setDB dbName =
-        state {
-            let db = Database dbName
-            do! setValue db
-        }
-
-    let getDB: StateM<Database, Database> =
-        state {
-            let! dbName = getValue
-            return dbName
-        }
-
+    // printfn "first argument: %s" args[0]
     let lineEditor = LineEditor()
     lineEditor.Prompt <- LineEditorPrompt(">", ".")
     lineEditor.KeyBindings.Add<PreviousHistoryCommand>(ConsoleKey.LeftArrow, ConsoleModifiers.Control)
@@ -36,14 +18,7 @@ let main _ =
                 )
                 .Result
 
-        // eval text
-        state {
-            do! setDB text
-            let! currentDB = getDB
-            return currentDB
-        }
-        |> printfn "currentDB: %A"
-
+        eval text
         repl ()
 
     repl ()
