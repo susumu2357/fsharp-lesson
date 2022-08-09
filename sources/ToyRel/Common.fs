@@ -24,8 +24,8 @@ type Statement =
 
 and AssignStmt = Identifier * Expression
 
-type Comparability =
-    | Comparable of string
-    | ColumnsNotMatch of string
-    | ColumnTypesNotMatch of string
-    | ColumnsOrderNotMatch of string
+// type Comparability =
+//     | Comparable of string
+//     | ColumnsNotMatch of string
+//     | ColumnTypesNotMatch of string
+//     | ColumnsOrderNotMatch of string

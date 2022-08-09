@@ -80,3 +80,10 @@ open Eval
 eval "use wikipedia"
 eval "r2 = (project (Employee) DeptName) difference (project (Dept) DeptName)"
 eval "print r2"
+
+// difference revised
+eval "use wikipedia"
+// ColumnsNotMatch
+eval "r2 = (project (Employee) DeptName) difference (project (Dept) Manager)"
+// columnsOrderNotMatch
+eval "r2 = (project (Employee) Name, DeptName) difference (project (Employee) DeptName, Name)"
