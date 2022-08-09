@@ -35,10 +35,24 @@ let pProjectExpression =
 
 let pIdentifierExpression = pIdentifier |>> Expression.Identifier
 
-pExpressionRef.Value <- pProjectExpression <|> pIdentifierExpression
+let pDifferenceExpression =
+    let expression = (str_ws "(") >>. pExpression .>> (str_ws ")")
+
+    let diffExpression =
+        expression
+        .>>. (str_ws "difference" >>. expression)
+
+    diffExpression |>> DifferenceExpression
+
+pExpressionRef.Value <-
+    pProjectExpression
+    <|> pIdentifierExpression
+    <|> pDifferenceExpression
+
 
 let pIdentifierStmt = pIdentifierExpression |>> Expression
 let pProjectStmt = pProjectExpression |>> Expression
+let pDifferenceStmt = pDifferenceExpression |>> Expression
 
 let pPrintStmt =
     let stmt = (str_ws "print") >>. pIdentifier
@@ -71,6 +85,7 @@ let pStmt =
     <|> pQuitStmt
     <|> pProjectStmt
     <|> pAssignStmt
+    <|> pDifferenceStmt
     <|> pIdentifierStmt
 
 let paserResult parser str =

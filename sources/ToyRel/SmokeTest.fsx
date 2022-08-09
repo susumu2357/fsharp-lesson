@@ -22,6 +22,9 @@ open Eval
 // show the list of relations in database/main
 eval "list"
 
+// set the DB
+eval "use wikipedia"
+
 // print the content of the relation
 eval "print Employee"
 
@@ -41,6 +44,7 @@ eval "test2 = project (book) author"
 eval "print test2"
 
 // tandp.mdの在庫管理データベースについて、商品を作っている生産者の一覧を表示しましょう。
+eval "use glossary"
 eval "test3 = project (goods) producer"
 eval "print test3"
 
