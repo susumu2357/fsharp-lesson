@@ -1,7 +1,8 @@
 module Common
 
 // let databasePath = ".\\sources\\ToyRel\\database\\master\\"
-let databasePath = ".\\database\\master\\"
+let databaseBase = ".\\database\\"
+let mutable dbPath = "master\\"
 
 type ColumnList = ColumnList of string list
 
@@ -13,10 +14,11 @@ and Identifier = string
 and ProjectExpression = Expression * ColumnList
 
 type Statement =
-    | PrintStmt of string
+    | PrintStmt of Identifier
     | AssignStmt of AssignStmt
     | ListingStmt of string
     | QuitStmt of string
+    | UseStmt of Identifier
     | Expression of Expression
 
 and AssignStmt = Identifier * Expression

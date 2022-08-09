@@ -1,6 +1,6 @@
 #!/bin/sh
 
-rm -rf database/master
-mkdir -p database/master
-cp ../data/シラバス.csv ../data/wikipedia/*.csv ../data/tandp/*.csv database/master
-ls database/master
+rm -rf database/master database/tandp
+mkdir -p database/master database/tandp
+cp ../data/シラバス.csv ../data/wikipedia/*.csv  database/master
+cp ../data/tandp/*.csv database/tandp

@@ -31,7 +31,7 @@ module Relation =
     let print rel = (value rel).Print()
 
     let openRelation relationName =
-        let filepath = ".\\database\\master\\" + relationName + ".csv"
+        let filepath = databaseBase + dbPath + relationName + ".csv"
 
         Frame.ReadCsv filepath |> create
 
@@ -39,7 +39,7 @@ module Relation =
 
     let saveAs rel basename =
         let df = value rel
-        df.SaveCsv(databasePath + basename + ".csv")
+        df.SaveCsv(databaseBase + dbPath + basename + ".csv")
 
     let save rel =
         let rndName = randName ()

@@ -45,7 +45,7 @@ let pPrintStmt =
 
     stmt |>> PrintStmt
 
-let passignStmt =
+let pAssignStmt =
     pIdentifier .>>. ((str_ws "=") >>. pExpression)
     |>> AssignStmt
 
@@ -59,12 +59,18 @@ let pQuitStmt =
 
     stmt |>> QuitStmt
 
+let pUseStmt =
+    let stmt = str_ws "use" >>. pIdentifier
+
+    stmt |>> UseStmt
+
 let pStmt =
     pPrintStmt
+    <|> pUseStmt
     <|> pListingStmt
     <|> pQuitStmt
     <|> pProjectStmt
-    <|> passignStmt
+    <|> pAssignStmt
     <|> pIdentifierStmt
 
 let paserResult parser str =

@@ -44,8 +44,12 @@ let eval str =
     match paserResult pStmt str with
     | PrintStmt printStmt -> evalPrintStmt printStmt
     | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
-    | ListingStmt _ -> listing databasePath
+    | ListingStmt _ -> listing (databaseBase + dbPath)
     | QuitStmt _ -> Environment.Exit 1
+    | UseStmt newDBName ->
+        let newdbPath = newDBName + @"\\"
+        printfn "changed database from %s to %s" dbPath newdbPath
+        dbPath <- newdbPath
     | Expression exp ->
         match exp with
         | ProjectExpression projectExpression ->
