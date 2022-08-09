@@ -1,7 +1,7 @@
 module Common
 
 // let databasePath = ".\\sources\\ToyRel\\database\\master\\"
-let databasePath = ".\\database\\master\\"
+// let databasePath = ".\\database\\master\\"
 
 type ColumnList = ColumnList of string list
 
@@ -20,3 +20,6 @@ type Statement =
     | Expression of Expression
 
 and AssignStmt = Identifier * Expression
+
+type StateM<'s, 'r> = StateM of ('s -> 'r * 's)
+type Database = Database of string

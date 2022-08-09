@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <Compile Include="Common.fs" />
+    <Compile Include="StateM.fs" />
     <Compile Include="Parser.fs" />
     <Compile Include="Relation.fs" />
     <Compile Include="Eval.fs" />

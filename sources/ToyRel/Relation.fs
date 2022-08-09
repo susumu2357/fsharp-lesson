@@ -30,18 +30,30 @@ module Relation =
 
     let print rel = (value rel).Print()
 
-    let openRelation relationName =
-        let filepath = ".\\database\\master\\" + relationName + ".csv"
+    let openRelation dbName relationName =
+        let filepath =
+            ".\\database\\"
+            + dbName
+            + @"\\"
+            + relationName
+            + ".csv"
 
         Frame.ReadCsv filepath |> create
 
     let project (Relation df) (columns: string list) = create df.Columns.[columns]
 
-    let saveAs rel basename =
+    let saveAs dbName rel basename =
         let df = value rel
-        df.SaveCsv(databasePath + basename + ".csv")
 
-    let save rel =
+        df.SaveCsv(
+            ".\\database\\"
+            + dbName
+            + @"\\"
+            + basename
+            + ".csv"
+        )
+
+    let save dbName rel =
         let rndName = randName ()
-        saveAs rel rndName
+        saveAs dbName rel rndName
         rndName
