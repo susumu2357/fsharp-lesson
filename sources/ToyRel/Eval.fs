@@ -1,6 +1,7 @@
 module Eval
 
 open System
+open System.Collections.Generic
 open Deedle
 
 open Common
@@ -14,12 +15,12 @@ type EvalDifferenceExpression = Expression -> Expression -> Relation.T
 type Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityError>
 
 and ComparabilityError =
-    | ColumnsNotMatch of string
-    | ColumnTypesNotMatch of string
-    | ColumnsOrderNotMatch of string
+    | ColumnsNotMatch
+    | ColumnTypesNotMatch
+    | ColumnsOrderNotMatch
 
 and Comparability =
-    | Comparable of string
+    | Comparable
     | ComparabilityError of ComparabilityError
 
 let getColsAndTypes: Frame<int, string> -> string list * Type list =
@@ -36,17 +37,13 @@ let validateComparability df1 df2 =
     let checkTypes = (colType1 = colType2)
 
     match (checkColumns, checkTypes) with
-    | (true, true) -> Comparable "comparable"
-    | (true, false) ->
-        ColumnTypesNotMatch "columnTypesNotMatch"
-        |> ComparabilityError
+    | (true, true) -> Comparable
+    | (true, false) -> ColumnTypesNotMatch |> ComparabilityError
     | (false, _) ->
         if List.sort col1 = List.sort col2 then
-            ColumnsOrderNotMatch "columnsOrderNotMatch"
-            |> ComparabilityError
+            ColumnsOrderNotMatch |> ComparabilityError
         else
-            ColumnsNotMatch "columnsNotMatch"
-            |> ComparabilityError
+            ColumnsNotMatch |> ComparabilityError
 
 let difference: Difference =
     fun rel1 rel2 ->
@@ -55,10 +52,10 @@ let difference: Difference =
 
         match validateComparability df1 df2 with
         | Comparable _ ->
-            let reference = df2.Rows.Values |> Seq.distinct
+            let reference = df2.Rows.Values |> HashSet
 
             df1.RowsDense
-            |> Series.filterValues (fun row -> not (reference |> Seq.contains row))
+            |> Series.filterValues (fun row -> not (reference.Contains row))
             |> Frame.ofRows
             |> Relation.create
             |> Result.Ok
