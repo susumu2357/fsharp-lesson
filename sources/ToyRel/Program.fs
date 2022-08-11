@@ -18,8 +18,16 @@ let main _ =
                 )
                 .Result
 
-        eval text
-        repl ()
+        match eval text with
+        | Ok _ -> repl ()
+        | Error err ->
+            match err with
+            | ParseError parseError ->
+                printfn "%A" parseError
+                repl ()
+            | ExecutionError executionError ->
+                printfn "%A" executionError
+                repl ()
 
     repl ()
     0

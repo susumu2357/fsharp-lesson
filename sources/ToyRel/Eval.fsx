@@ -1,10 +1,20 @@
-module Eval
-
-open System
+#r "nuget:Deedle"
 open Deedle
 
+#r "nuget:FParsec"
+
+open FParsec
+
+open System
+
+Environment.CurrentDirectory
+Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
+
+#load "Common.fs"
 open Common
+#load "Relation.fs"
 open Relation
+#load "Parser.fs"
 open Parser
 
 type EvalExpression = Expression -> Result<Relation.T, ExecutionError>
@@ -102,6 +112,7 @@ and evalProjectExpression: EvalProjectExpression =
         rel |> Result.bind (project columns)
 
 
+
 and evalDifferenceExpression: EvalDifferenceExpression =
     fun exp1 exp2 ->
         let rel1 = evalExpression exp1
@@ -115,6 +126,7 @@ and evalDifferenceExpression: EvalDifferenceExpression =
         | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
         // When both relations are illegal, only the first error will be raise.
         | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
+
 
 
 let evalPrintStmt identifier =

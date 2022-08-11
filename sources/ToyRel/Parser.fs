@@ -88,10 +88,14 @@ let pStmt =
     <|> pDifferenceStmt
     <|> pIdentifierStmt
 
-let paserResult parser str =
-    match run parser str with
-    | Success (result, _, _) -> result
-    | Failure (errorMsg, _, _) -> failwithf "Failure: %s" errorMsg
+type ParserResult = Parser<Statement, unit> -> string -> Result<Statement, ParseError>
+and ParseError = ParseError of string
+
+let paserResult: ParserResult =
+    fun parser str ->
+        match run parser str with
+        | Success (result, _, _) -> Result.Ok result
+        | Failure (errorMsg, _, _) -> Result.Error(ParseError errorMsg)
 
 // To avoid Value restriction error
 paserResult pStmt "print abc" |> ignore

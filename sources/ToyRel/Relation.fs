@@ -16,6 +16,8 @@ let randName unit =
     // + List.fold (fun acc elem -> acc + string elem) "" randomChars
     + String.concat "" randomChars
 
+type IncorrectPathError = IncorrectPathError
+
 module Relation =
     type T = Relation of Frame<int, string>
 
@@ -33,15 +35,18 @@ module Relation =
     let openRelation relationName =
         let filepath = databaseBase + dbPath + relationName + ".csv"
 
-        Frame.ReadCsv filepath |> create
+        if IO.File.Exists(filepath) then
+            Frame.ReadCsv filepath |> create |> Result.Ok
+        else
+            IncorrectPathError |> Result.Error
 
     let project (Relation df) (columns: string list) = create df.Columns.[columns]
 
-    let saveAs rel basename =
+    let saveAs basename rel =
         let df = value rel
-        df.SaveCsv(databaseBase + dbPath + basename + ".csv")
+        df.SaveCsv(path = databaseBase + dbPath + basename + ".csv", includeRowKeys = false)
 
     let save rel =
         let rndName = randName ()
-        saveAs rel rndName
+        saveAs rndName rel
         rndName

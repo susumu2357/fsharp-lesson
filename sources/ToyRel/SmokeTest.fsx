@@ -16,7 +16,7 @@ open Common
 open Parser
 #load "Relation.fs"
 open Relation
-#load "Eval.fs"
+#load "Eval.fsx"
 open Eval
 
 // show the list of relations in database/main
@@ -51,3 +51,38 @@ eval "print test3"
 // tandp.mdの在庫管理データベースについて、どこかの支社に一度でも配送したことなる生産者の一覧を表示しましょう。
 eval "test4 = project (delivery) producer"
 eval "print test4"
+
+// tandp.mdの図書館データベースで、図書館にまったく本が存在しないsubjectの一覧を取り出す
+eval "use library"
+eval "not_in_library_class = (project (subject) class) difference (project (index) class)"
+eval "print not_in_library_class"
+
+// wikipediaデータベースでEmployeeの居ない部署を取り出す
+eval "use wikipedia"
+eval "no_employees_dept = (project (Dept) DeptName) difference (project (Employee) DeptName)"
+eval "print no_employees_dept"
+
+// Error handling
+eval "use wikipedia"
+
+// ParseError
+eval "print"
+eval "project Employee Name"
+eval "(project (Dept) DeptName) difference project (Employee) DeptName"
+
+// IncorrectPathError
+eval "print Emp"
+eval "project (Empl) Name"
+eval "(project (Dept) DeptName) difference (project (Empl) DeptName)"
+
+// ProjectionError ColumnNotFound
+eval "project (Employee) hoge"
+
+// ComparabilityError ColumnsMismatch
+eval "(project (Employee) DeptName) difference (project (Dept) Manager)"
+
+// ComparabilityError ColumnsOrderMismatch
+eval "(project (Employee) Name, DeptName) difference (project (Employee) DeptName, Name)"
+
+// ComparabilityError ColumnsTypesMismatch
+eval "(project (Employee) EmpId) difference (project (EmployeeTypeMismatch) EmpId)"

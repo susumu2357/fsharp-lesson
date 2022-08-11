@@ -87,3 +87,5 @@ eval "use wikipedia"
 eval "r2 = (project (Employee) DeptName) difference (project (Dept) Manager)"
 // columnsOrderNotMatch
 eval "r2 = (project (Employee) Name, DeptName) difference (project (Employee) DeptName, Name)"
+
+eval "test = Employee"
