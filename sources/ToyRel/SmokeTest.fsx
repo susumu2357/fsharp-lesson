@@ -16,7 +16,7 @@ open Common
 open Parser
 #load "Relation.fs"
 open Relation
-#load "Eval.fsx"
+#load "Eval.fs"
 open Eval
 
 // show the list of relations in database/main

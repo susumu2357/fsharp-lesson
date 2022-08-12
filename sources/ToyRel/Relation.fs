@@ -16,7 +16,6 @@ let randName unit =
     // + List.fold (fun acc elem -> acc + string elem) "" randomChars
     + String.concat "" randomChars
 
-type IncorrectPathError = IncorrectPathError
 
 module Relation =
     type T = Relation of Frame<int, string>

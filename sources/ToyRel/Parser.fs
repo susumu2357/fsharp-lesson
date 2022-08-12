@@ -88,10 +88,7 @@ let pStmt =
     <|> pDifferenceStmt
     <|> pIdentifierStmt
 
-type ParserResult = Parser<Statement, unit> -> string -> Result<Statement, ParseError>
-and ParseError = ParseError of string
-
-let paserResult: ParserResult =
+let paserResult =
     fun parser str ->
         match run parser str with
         | Success (result, _, _) -> Result.Ok result

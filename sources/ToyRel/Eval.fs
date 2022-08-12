@@ -8,30 +8,10 @@ open Relation
 open Parser
 
 type EvalExpression = Expression -> Result<Relation.T, ExecutionError>
-and EvalProjectExpression = ProjectExpression -> Result<Relation.T, ExecutionError>
-and EvalDifferenceExpression = Expression -> Expression -> Result<Relation.T, ExecutionError>
+type EvalProjectExpression = ProjectExpression -> Result<Relation.T, ExecutionError>
+type EvalDifferenceExpression = Expression -> Expression -> Result<Relation.T, ExecutionError>
+type Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityError>
 
-and Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityError>
-
-and ExecutionError =
-    | IncorrectPathError of IncorrectPathError
-    | ProjectionError of ProjectionError
-    | ComparabilityError of ComparabilityError
-
-and ProjectionError = | ColumnNotFound
-
-and ComparabilityError =
-    | ColumnsMismatch
-    | ColumnTypesMismatch
-    | ColumnsOrderMismatch
-
-and Comparability =
-    | Comparable
-    | ComparabilityError of ComparabilityError
-
-type EvaluationError =
-    | ParseError of ParseError
-    | ExecutionError of ExecutionError
 
 let getColsAndTypes: Frame<int, string> -> string list * Type list =
     fun df ->
@@ -83,7 +63,7 @@ let rec evalExpression: EvalExpression =
         match exp with
         | Identifier identifier ->
             Relation.openRelation identifier
-            |> Result.mapError IncorrectPathError
+            |> Result.mapError ExecutionError.IncorrectPathError
         | ProjectExpression projectExpression -> evalProjectExpression projectExpression
         | DifferenceExpression (exp1, exp2) -> evalDifferenceExpression exp1 exp2
 
@@ -113,7 +93,7 @@ and evalDifferenceExpression: EvalDifferenceExpression =
             |> Result.mapError ExecutionError.ComparabilityError
         | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
         | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
-        // When both relations are illegal, only the first error will be raise.
+        // When both relations are illegal, only raise the first error.
         | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
 
 
@@ -121,7 +101,7 @@ let evalPrintStmt identifier =
     let rel = Relation.openRelation identifier
 
     rel
-    |> Result.mapError IncorrectPathError
+    |> Result.mapError ExecutionError.IncorrectPathError
     |> Result.map Relation.print
 
 
@@ -136,7 +116,7 @@ let listing path =
         [ for x in files do
               IO.Path.GetFileNameWithoutExtension x ]
 
-    List.iteri (printfn "%2i: %s") names
+    List.iteri (printfn "%2i: %s") names |> Result.Ok
 
 let printRelationName rel = printfn "Relation %s returned." rel
 
@@ -145,13 +125,13 @@ let eval str =
         match paserResult with
         | PrintStmt printStmt -> evalPrintStmt printStmt
         | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
-        | ListingStmt _ -> listing (databaseBase + dbPath) |> Result.Ok
+        | ListingStmt _ -> listing (databaseBase + dbPath)
         | QuitStmt _ -> Environment.Exit 1 |> Result.Ok
         | UseStmt newDBName ->
             let newdbPath = newDBName + @"\\"
             printfn "changed database from %s to %s" dbPath newdbPath
             dbPath <- newdbPath
-            () |> Result.Ok
+            Result.Ok()
         | Expression exp ->
             match exp with
             | ProjectExpression projectExpression ->
@@ -176,6 +156,6 @@ let eval str =
 
     let paserResultAdapted =
         paserResult pStmt str
-        |> Result.mapError ParseError
+        |> Result.mapError EvaluationError.ParseError
 
     paserResultAdapted |> Result.bind evalAdapted

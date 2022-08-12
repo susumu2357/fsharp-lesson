@@ -24,8 +24,27 @@ type Statement =
 
 and AssignStmt = Identifier * Expression
 
-// type Comparability =
-//     | Comparable of string
-//     | ColumnsNotMatch of string
-//     | ColumnTypesNotMatch of string
-//     | ColumnsOrderNotMatch of string
+
+type ExecutionError =
+    | IncorrectPathError of IncorrectPathError
+    | ProjectionError of ProjectionError
+    | ComparabilityError of ComparabilityError
+
+and ProjectionError = ColumnNotFound
+
+and IncorrectPathError = IncorrectPathError
+
+and ComparabilityError =
+    | ColumnsMismatch
+    | ColumnTypesMismatch
+    | ColumnsOrderMismatch
+
+type Comparability =
+    | Comparable
+    | ComparabilityError of ComparabilityError
+
+type EvaluationError =
+    | ParseError of ParseError
+    | ExecutionError of ExecutionError
+
+and ParseError = ParseError of string
