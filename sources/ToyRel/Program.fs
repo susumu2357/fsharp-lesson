@@ -1,5 +1,6 @@
 ﻿open RadLine
 open System
+open Common
 open Eval
 
 [<EntryPoint>]
@@ -22,10 +23,10 @@ let main _ =
         | Ok _ -> repl ()
         | Error err ->
             match err with
-            | ParseError parseError ->
+            | EvaluationError.ParseError parseError ->
                 printfn "%A" parseError
                 repl ()
-            | ExecutionError executionError ->
+            | EvaluationError.ExecutionError executionError ->
                 printfn "%A" executionError
                 repl ()
 

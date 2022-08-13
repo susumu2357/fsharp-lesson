@@ -35,7 +35,10 @@ module Relation =
         let filepath = databaseBase + dbPath + relationName + ".csv"
 
         if IO.File.Exists(filepath) then
-            Frame.ReadCsv filepath |> create |> Result.Ok
+            try
+                Frame.ReadCsv filepath |> create |> Result.Ok
+            with
+            | _ -> EmptyCSVError |> Result.Error
         else
             IncorrectPathError |> Result.Error
 
