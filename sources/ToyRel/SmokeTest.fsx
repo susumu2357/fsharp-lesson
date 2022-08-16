@@ -33,6 +33,7 @@ eval "project (Employee) Name, DeptName"
 
 // evaluate the right-hand side and save the result as the name of left-hand side
 eval "test_relation = project (project (Employee) Name, DeptName) Name"
+eval "print test_relation"
 
 // いろいろprojectを実行してみよう
 // wikipediaデータベースのデータで、Employeeの名前の一覧を表示してみましょう。
@@ -40,6 +41,7 @@ eval "test1 = project (Employee) Name"
 eval "print test1"
 
 // tandp.mdの図書館データベースについて、この図書館に所蔵されている本の著者の一覧を表示しましょう。
+eval "use library"
 eval "test2 = project (book) author"
 eval "print test2"
 
@@ -86,3 +88,30 @@ eval "(project (Employee) Name, DeptName) difference (project (Employee) DeptNam
 
 // ComparabilityError ColumnsTypesMismatch
 eval "(project (Employee) EmpId) difference (project (EmployeeTypeMismatch) EmpId)"
+
+// tandp.mdの図書館データベースで、indexから作者がヘミングウェイでクラスがc3のものを取り出しましょう。
+eval "use library"
+eval "test_c3 = restrict (index) ((author = \"HEMINGWAY\") and (class = \"C3\"))"
+eval "print test_c3"
+
+// tandp.mdの在庫管理データベースについて、L1支社に現在まだ在庫としてある商品（INSTOCK）のsell_priceとcost_priceの一覧を取り出しましょう。
+eval "use glossary"
+eval "test_instock = project (restrict (stock) (date_out = \"INSTOCK\")) sell_price, cost_price"
+eval "print test_instock"
+
+// Error handling for the restrict condition
+eval "use wikipedia"
+
+// TypesMismatch
+eval "restrict (Employee) (Name = 1)"
+eval "restrict (Employee) (Name = EmpId)"
+
+// IlldifinedOperatorForStrings
+eval "restrict (Employee) (Name > \"Harry\")"
+eval "restrict (Employee) (Name <= \"Harry\")"
+
+// ColumnNotFound
+eval "restrict (Employee) (hoge = 1)"
+
+// When both conditions are invalid, only raise the first error (ColumnNotFound in this case)
+eval "restrict (Employee) ((hoge = 1) and (Name > \"Harry\"))"

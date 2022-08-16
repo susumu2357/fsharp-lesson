@@ -20,6 +20,22 @@ let getColsAndTypes: Frame<int, string> -> string list * Type list =
         let types = df.ColumnTypes |> Seq.toList
         cols, types
 
+let validateColumn: Frame<int, string> -> string -> ColumnValidity =
+    fun df col ->
+        let colDf = df.Columns[[ col ]]
+
+        if Frame.countRows colDf >= 1 then
+            let (_, t) = getColsAndTypes colDf
+
+            match t.[0] with
+            | t when (t = typeof<float> || t = typeof<int32>) -> Float |> ValidColumn
+            | t when t = typeof<string> -> String |> ValidColumn
+            | _ ->
+                UnsupportedColumnType
+                |> ColumnValidity.ConditionError
+        else
+            ColumnNotFound |> ColumnValidity.ConditionError
+
 let validateComparability df1 df2 =
     let col1, colType1 = getColsAndTypes df1
     let col2, colType2 = getColsAndTypes df2
@@ -28,7 +44,7 @@ let validateComparability df1 df2 =
     let checkTypes = (colType1 = colType2)
 
     match (checkColumns, checkTypes) with
-    | (true, true) -> Comparable colType1
+    | (true, true) -> Comparable
     | (true, false) -> ColumnTypesMismatch |> ComparabilityError
     | (false, _) ->
         if List.sort col1 = List.sort col2 then
@@ -72,6 +88,7 @@ let rec evalCondition: EvalCondition =
             fun row ->
                 (evalCondition cond1) row
                 || (evalCondition cond2) row
+        | NOTCondition cond -> fun row -> not ((evalCondition cond) row)
         | SingleCondition cond ->
             match cond with
             | ColumnColumn { Column1 = col1
@@ -88,74 +105,61 @@ let rec evalCondition: EvalCondition =
                             Value = value
                             Operator = op } ->
                 match value with
-                | Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
-                | String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
+                | Value.Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
+                | Value.String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
 
 let rec validateCondition (condition: Condition, df: Frame<int, string>) =
     match condition with
-    | ANDCondition (cond1, cond2) ->
-        validateCondition (cond1, df)
-        + validateCondition (cond2, df)
-    | ORCondition (cond1, cond2) ->
-        validateCondition (cond1, df)
-        + validateCondition (cond2, df)
+    | ANDCondition (cond1, cond2) -> combineValidity (validateCondition (cond1, df)) (validateCondition (cond2, df))
+    | ORCondition (cond1, cond2) -> combineValidity (validateCondition (cond1, df)) (validateCondition (cond2, df))
+    | NOTCondition cond -> validateCondition (cond, df)
     | SingleCondition cond ->
         match cond with
         | ColumnColumn { Column1 = col1
                          Column2 = col2
                          Operator = op } ->
-            let df1 = df.Columns[[ col1 ]]
-            let df2 = df.Columns[[ col2 ]]
+            let v1 = validateColumn df col1
+            let v2 = validateColumn df col2
 
-            let (_, t1) = getColsAndTypes df1
-            let (_, t2) = getColsAndTypes df2
-
-            if t1 = t2 then
-                let tp = t1.[0]
-
-                match tp with
-                | t when (t = typeof<float> || t = typeof<int32>) -> 0
-                | t when
-                    (t = typeof<string>
-                     && ((op = Equal) || (op = NotEqual)))
-                    ->
-                    0
-                | _ -> 2
-            else
-                2
+            match (v1, v2) with
+            | (ValidColumn c1, ValidColumn c2) ->
+                match (c1, c2) with
+                | (Float, Float) -> ValidCondition
+                | (String, String) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | (ColumnValidity.ConditionError e, ValidColumn _) -> e |> ConditionError
+            | (ValidColumn _, ColumnValidity.ConditionError e) -> e |> ConditionError
+            | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> e1 |> ConditionError
 
         | ColumnValue { Column = col
                         Value = value
                         Operator = op } ->
 
-            let df1 = df.Columns[[ col ]]
+            let v1 = validateColumn df col
 
-            match validateComparability df1 df1 with
-            | Comparable colTypes ->
-                let tp = colTypes.[0]
-
-                match tp with
-                | t when (t = typeof<float> || t = typeof<int32>) ->
-                    match value with
-                    | Float _ -> 0
-                    | _ -> 2
-                | t when
-                    (t = typeof<string>
-                     && ((op = Equal) || (op = NotEqual)))
-                    ->
-                    match value with
-                    | String _ -> 0
-                    | _ -> 2
-                | _ -> 2
-            | _ -> 1
-
+            match v1 with
+            | ValidColumn c1 ->
+                match (c1, value) with
+                | (Float, Value.Float _) -> ValidCondition
+                | (String, Value.String _) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | ColumnValidity.ConditionError e -> e |> ConditionError
 
 
 let restriction rel cond =
     let df = Relation.value rel
-    let validateInt = validateCondition (cond, df)
+    let conditionValidity = validateCondition (cond, df)
 
-    if validateInt = 0 then
+    match conditionValidity with
+    | ValidCondition _ ->
         let condition = evalCondition cond
 
         df.RowsDense
@@ -163,12 +167,9 @@ let restriction rel cond =
         |> Frame.ofRows
         |> Relation.create
         |> Result.Ok
-    elif validateInt % 2 = 1 then
-        ColumnTypesMismatch
-        |> Result.Error
-        |> Result.mapError ExecutionError.ComparabilityError
-    else
-        ConditionError
+
+    | ConditionError err ->
+        err
         |> Result.Error
         |> Result.mapError ExecutionError.ConditionError
 
@@ -197,7 +198,9 @@ and evalProjectExpression: EvalProjectExpression =
             if validateColumnNames rel columns then
                 Relation.project rel columns |> Result.Ok
             else
-                ColumnNotFound |> ProjectionError |> Result.Error
+                ProjectionError.ColumnNotFound
+                |> ProjectionError
+                |> Result.Error
 
         rel |> Result.bind (project columns)
 
@@ -231,7 +234,6 @@ let evalPrintStmt identifier =
 
 let evalAssignStmt (basename, expression) =
     let rel = evalExpression expression
-    printfn "%A" rel
     rel |> Result.map (Relation.saveAs basename)
 
 let listing path =
@@ -249,7 +251,9 @@ let eval str =
     let evalAdapted paserResult =
         match paserResult with
         | PrintStmt printStmt -> evalPrintStmt printStmt
-        | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
+        | AssignStmt (basename, expression) ->
+            evalAssignStmt (basename, expression)
+            |> Result.map (fun () -> printRelationName basename)
         | ListingStmt _ -> listing (databaseBase + dbPath)
         | QuitStmt _ -> Environment.Exit 1 |> Result.Ok
         | UseStmt newDBName ->

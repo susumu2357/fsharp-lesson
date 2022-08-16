@@ -55,10 +55,11 @@ let pOperator =
 let pValue =
     let notQuotation = satisfy (fun c -> c <> '\"')
 
-    (pfloat .>> ws |>> Float)
+    (pfloat .>> ws |>> Value.Float |>> ColOrVal.Value)
     <|> (str_ws "\"" >>. (manyChars notQuotation)
          .>> str_ws "\""
-         |>> String)
+         |>> Value.String
+         |>> ColOrVal.Value)
 
 let toColumnColumn ((col1, op), col2) =
     { Column1 = col1
@@ -70,21 +71,19 @@ let toColumnValue ((col, op), value) =
       Value = value
       Operator = op }
 
+let toConditionType ((col, op), colOrVal) =
+    match colOrVal with
+    | ColOrVal.Column col2 -> toColumnColumn ((col, op), col2) |> ColumnColumn
+    | ColOrVal.Value value -> toColumnValue ((col, op), value) |> ColumnValue
+
 let pCondition, pConditionRef = createParserForwardedToRef ()
 
 let pSingleCondition =
-    let pColumnColumn =
-        pColumn .>>. pOperator .>>. pColumn
-        |>> toColumnColumn
-
-    let pColumnValue =
-        pColumn .>>. pOperator .>>. pValue
-        |>> toColumnValue
-
-    (attempt pColumnValue
-     |>> ColumnValue
-     |>> SingleCondition)
-    <|> (pColumnColumn |>> ColumnColumn |>> SingleCondition)
+    pColumn
+    .>>. pOperator
+    .>>. (pColumn |>> ColOrVal.Column <|> pValue)
+    |>> toConditionType
+    |>> SingleCondition
 
 
 let pANDCondition =
@@ -101,10 +100,26 @@ let pORCondition =
     (cond1 .>> str_ws ("or")) .>>. cond2
     |>> ORCondition
 
-pConditionRef.Value <-
-    pSingleCondition
-    <|> attempt pANDCondition
-    <|> pORCondition
+let toAndOrType ((cond1, andOr), cond2) =
+    match andOr with
+    | "and" -> (cond1, cond2) |> ANDCondition
+    | "or" -> (cond1, cond2) |> ORCondition
+    | _ -> failwithf "logical operator should be either 'and' or 'or'"
+
+let pAndOr =
+    let cond1 = (str_ws "(") >>. pCondition .>> (str_ws ")")
+    let cond2 = (str_ws "(") >>. pCondition .>> (str_ws ")")
+
+    (cond1 .>>. (str_ws ("and") <|> str_ws ("or")))
+    .>>. cond2
+    |>> toAndOrType
+
+let pNOTCondition =
+    let cond = (str_ws "(") >>. pCondition .>> (str_ws ")")
+    str_ws ("not") >>. cond |>> NOTCondition
+
+
+pConditionRef.Value <- pNOTCondition <|> pSingleCondition <|> pAndOr
 
 let pRestrictExpression =
     let expression =
