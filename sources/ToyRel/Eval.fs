@@ -5,7 +5,6 @@ open Deedle
 
 open Common
 open Relation
-open Parser
 
 type EvalExpression = Expression -> Result<Relation.T, ExecutionError>
 type EvalProjectExpression = ProjectExpression -> Result<Relation.T, ExecutionError>
@@ -20,6 +19,8 @@ let getColsAndTypes: Frame<int, string> -> string list * Type list =
         let types = df.ColumnTypes |> Seq.toList
         cols, types
 
+// Validate single column of Frame.
+// Float and Int types are treated as Float when evaluating the condition.
 let validateColumn: Frame<int, string> -> string -> ColumnValidity =
     fun df col ->
         let colDf = df.Columns[[ col ]]
@@ -36,6 +37,7 @@ let validateColumn: Frame<int, string> -> string -> ColumnValidity =
         else
             ColumnNotFound |> ColumnValidity.ConditionError
 
+// Validate union comparability for Difference.
 let validateComparability df1 df2 =
     let col1, colType1 = getColsAndTypes df1
     let col2, colType2 = getColsAndTypes df2
@@ -77,6 +79,8 @@ let evalOperator a b op =
     | Greater -> a > b
     | Equal -> a = b
 
+// Conditions are assumed to be valid.
+// Because conditions have been validated before executing evalCondition.
 let rec evalCondition: EvalCondition =
     fun cond ->
         match cond with
@@ -108,11 +112,13 @@ let rec evalCondition: EvalCondition =
                 | Value.Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
                 | Value.String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
 
-let rec validateCondition (condition: Condition, df: Frame<int, string>) =
+// Validate condition used in Restrict.
+// Only the left most error will be raised when there are multiple errors.
+let rec validateCondition condition df =
     match condition with
-    | ANDCondition (cond1, cond2) -> combineValidity (validateCondition (cond1, df)) (validateCondition (cond2, df))
-    | ORCondition (cond1, cond2) -> combineValidity (validateCondition (cond1, df)) (validateCondition (cond2, df))
-    | NOTCondition cond -> validateCondition (cond, df)
+    | ANDCondition (cond1, cond2) -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+    | ORCondition (cond1, cond2) -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+    | NOTCondition cond -> validateCondition cond df
     | SingleCondition cond ->
         match cond with
         | ColumnColumn { Column1 = col1
@@ -156,7 +162,7 @@ let rec validateCondition (condition: Condition, df: Frame<int, string>) =
 
 let restriction rel cond =
     let df = Relation.value rel
-    let conditionValidity = validateCondition (cond, df)
+    let conditionValidity = validateCondition cond df
 
     match conditionValidity with
     | ValidCondition _ ->
@@ -173,6 +179,7 @@ let restriction rel cond =
         |> Result.Error
         |> Result.mapError ExecutionError.ConditionError
 
+// Validate column name existence for Project.
 let validateColumnNames rel columnNames =
     let refColumnNames = (Relation.value rel).ColumnKeys |> Seq.toList
 
@@ -247,51 +254,44 @@ let listing path =
 
 let printRelationName rel = printfn "Relation %s returned." rel
 
-let eval str =
-    let evalAdapted paserResult =
-        match paserResult with
-        | PrintStmt printStmt -> evalPrintStmt printStmt
-        | AssignStmt (basename, expression) ->
-            evalAssignStmt (basename, expression)
-            |> Result.map (fun () -> printRelationName basename)
-        | ListingStmt _ -> listing (databaseBase + dbPath)
-        | QuitStmt _ -> Environment.Exit 1 |> Result.Ok
-        | UseStmt newDBName ->
-            let newdbPath = newDBName + @"\\"
-            printfn "changed database from %s to %s" dbPath newdbPath
-            dbPath <- newdbPath
-            Result.Ok()
-        | Expression exp ->
-            match exp with
-            | ProjectExpression projectExpression ->
-                let rel = evalProjectExpression projectExpression
+let evalAdapted paserResult =
+    match paserResult with
+    | PrintStmt printStmt -> evalPrintStmt printStmt
+    | AssignStmt (basename, expression) ->
+        evalAssignStmt (basename, expression)
+        |> Result.map (fun () -> printRelationName basename)
+    | ListingStmt _ -> listing (databaseBase + dbPath)
+    | QuitStmt _ -> Environment.Exit 1 |> Result.Ok
+    | UseStmt newDBName ->
+        let newdbPath = newDBName + @"\\"
+        printfn "changed database from %s to %s" dbPath newdbPath
+        dbPath <- newdbPath
+        Result.Ok()
+    | Expression exp ->
+        match exp with
+        | ProjectExpression projectExpression ->
+            let rel = evalProjectExpression projectExpression
 
-                rel
-                |> Result.map Relation.save
-                |> Result.map printRelationName
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
 
-            | DifferenceExpression (exp1, exp2) ->
-                let rel = evalDifferenceExpression exp1 exp2
+        | DifferenceExpression (exp1, exp2) ->
+            let rel = evalDifferenceExpression exp1 exp2
 
-                rel
-                |> Result.map Relation.save
-                |> Result.map printRelationName
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
 
-            | RestrictExpression (exp, cond) ->
-                let rel = evalRestrictExpression exp cond
+        | RestrictExpression (exp, cond) ->
+            let rel = evalRestrictExpression exp cond
 
-                rel
-                |> Result.map Relation.save
-                |> Result.map printRelationName
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
 
-            | Identifier identifier ->
-                printfn "Only relation name is provided."
-                printfn "Do you mean \"print\" ?" |> Result.Ok
+        | Identifier identifier ->
+            printfn "Only relation name is provided."
+            printfn "Do you mean \"print\" ?" |> Result.Ok
 
-        |> Result.mapError ExecutionError
-
-    let paserResultAdapted =
-        paserResult pStmt str
-        |> Result.mapError EvaluationError.ParseError
-
-    paserResultAdapted |> Result.bind evalAdapted
+    |> Result.mapError ExecutionError

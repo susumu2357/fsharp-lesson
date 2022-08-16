@@ -5,6 +5,10 @@ open Deedle
 
 open FParsec
 
+#r "nuget:RadLine"
+
+open RadLine
+
 open System
 
 Environment.CurrentDirectory
@@ -18,6 +22,8 @@ open Parser
 open Relation
 #load "Eval.fs"
 open Eval
+#load "Interpreter.fs"
+open Interpreter
 
 // show the list of relations in database/main
 eval "list"

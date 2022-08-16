@@ -10,6 +10,7 @@
     <Compile Include="Parser.fs" />
     <Compile Include="Relation.fs" />
     <Compile Include="Eval.fs" />
+    <Compile Include="Interpreter.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

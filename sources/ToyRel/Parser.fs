@@ -102,8 +102,8 @@ let pORCondition =
 
 let toAndOrType ((cond1, andOr), cond2) =
     match andOr with
-    | "and" -> (cond1, cond2) |> ANDCondition
-    | "or" -> (cond1, cond2) |> ORCondition
+    | "and" -> ANDCondition(cond1, cond2)
+    | "or" -> ORCondition(cond1, cond2)
     | _ -> failwithf "logical operator should be either 'and' or 'or'"
 
 let pAndOr =
