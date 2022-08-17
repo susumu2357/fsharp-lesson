@@ -19,8 +19,12 @@ let getColsAndTypes: Frame<int, string> -> string list * Type list =
         let types = df.ColumnTypes |> Seq.toList
         cols, types
 
-// Validate single column of Frame.
-// Float and Int types are treated as Float when evaluating the condition.
+/// <summary>Validate single column of Deedle Frame.</summary>
+/// <param name="df">The dataframe to be calidated.</param>
+/// <param name="col">The column name. Should be a single string.</param>
+/// <returns>If the column of the dataframe is valid, returns ValidColumn.
+/// Float and Int columns are treated as valid Float column.
+/// If the column is invalid, returns one of cases of ColumnValidity.ConditionError.</returns>
 let validateColumn: Frame<int, string> -> string -> ColumnValidity =
     fun df col ->
         let colDf = df.Columns[[ col ]]
@@ -37,7 +41,12 @@ let validateColumn: Frame<int, string> -> string -> ColumnValidity =
         else
             ColumnNotFound |> ColumnValidity.ConditionError
 
-// Validate union comparability for Difference.
+/// <summary>Validate union comparability.
+/// If the relations have the same column names, the same column types, and the same order of columns, it is called union comparable.</summary>
+/// <param name="df1">The Deedle Frame of the left hand side of 'difference'.</param>
+/// <param name="df2">The Deedle Frame of the right hand side of 'difference'.</param>
+/// <returns>If the inputs are union comparable, returns Comparable of Comparability type.
+/// Otherwise, returns one of cases of ComparabilityError.</returns>
 let validateComparability df1 df2 =
     let col1, colType1 = getColsAndTypes df1
     let col2, colType2 = getColsAndTypes df2
@@ -79,8 +88,10 @@ let evalOperator a b op =
     | Greater -> a > b
     | Equal -> a = b
 
-// Conditions are assumed to be valid.
-// Because conditions have been validated before executing evalCondition.
+/// <summary>Evaluate Condition of 'restrict'.
+/// AND and OR conditions are recursively evaluated.</summary>
+/// <param name="cond">The Condition which should be validated before executing this function.</param>
+/// <returns>The function to be used in Series.filterValues.</returns>
 let rec evalCondition: EvalCondition =
     fun cond ->
         match cond with
@@ -112,8 +123,13 @@ let rec evalCondition: EvalCondition =
                 | Value.Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
                 | Value.String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
 
-// Validate condition used in Restrict.
-// Only the left most error will be raised when there are multiple errors.
+/// <summary>Validate Condition will be used in 'restrict'.
+/// AND and OR conditions are recursively evaluated.</summary>
+/// <param name="condition">The Condition parsed from 'restrict' Expression.</param>
+/// <param name="df">The Deedle Frame used in 'restrict' Expression.</param>
+/// <returns>If the input Condition is valid, returns ValidCondition of ConditionValidity type.
+/// Otherwise, returns one of cases of ConditionError.
+/// If there are multiple errors, only the left most error will be raised .</returns>
 let rec validateCondition condition df =
     match condition with
     | ANDCondition (cond1, cond2) -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
@@ -179,7 +195,11 @@ let restriction rel cond =
         |> Result.Error
         |> Result.mapError ExecutionError.ConditionError
 
-// Validate column name existence for Project.
+/// <summary>Validate column name existence, which is used in 'project'.</summary>
+/// <param name="rel">The Relation parsed from 'project' Expression.</param>
+/// <param name="columnNames">The string list of column names parsed from 'project' Expression.</param>
+/// <returns>If the columnNames exsit in the input relation, returns true.
+/// Otherwise, returns false.</returns>
 let validateColumnNames rel columnNames =
     let refColumnNames = (Relation.value rel).ColumnKeys |> Seq.toList
 
