@@ -211,6 +211,50 @@ let validateColumnNames rel columnNames =
     |> List.map (fun elm -> refColumnNames |> List.contains elm)
     |> List.fold (fun acc elm -> acc && elm) true
 
+let tryGetRelName exp =
+    match exp with
+    | Identifier identifier -> identifier
+    | _ -> Identifier "Right"
+
+let product rel1 rel2 prefix =
+    let df1 = Relation.value rel1
+    let df2 = Relation.value rel2
+
+    let cols1 = df1.ColumnKeys |> Collections.Generic.HashSet
+
+    let renaming col =
+        if cols1.Contains col then
+            prefix + "." + col
+        else
+            col
+
+    let renamedDf2 = df2 |> Frame.mapColKeys renaming
+
+    let expandedDf1 =
+        df1.Columns
+        |> Series.mapValues (fun series ->
+            Series.values series
+            |> Seq.toList
+            |> List.map (fun elm -> List.replicate (Frame.countRows df2) elm)
+            |> List.concat
+            |> List.toSeq
+            |> Series.ofValues)
+        |> Frame.ofColumns
+
+    let expandedDf2 =
+        renamedDf2.Columns
+        |> Series.mapValues (fun series ->
+            Series.values series
+            |> Seq.toList
+            |> List.replicate (Frame.countRows df1)
+            |> List.concat
+            |> List.toSeq
+            |> Series.ofValues)
+        |> Frame.ofColumns
+
+    expandedDf1.Join(expandedDf2) |> Relation.create
+
+
 let rec evalExpression: EvalExpression =
     fun exp ->
         match exp with
@@ -218,6 +262,7 @@ let rec evalExpression: EvalExpression =
         | ProjectExpression projectExpression -> evalProjectExpression projectExpression
         | DifferenceExpression (exp1, exp2) -> evalDifferenceExpression exp1 exp2
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond
+        | ProductExpression (exp1, exp2) -> evalProductExpression exp1 exp2
 
 and evalProjectExpression: EvalProjectExpression =
     fun projectExp ->
@@ -256,6 +301,18 @@ and evalRestrictExpression exp cond =
     match rel with
     | Result.Ok rel -> restriction rel cond
     | Result.Error err -> err |> Result.Error
+
+and evalProductExpression exp1 exp2 =
+    let rel1 = evalExpression exp1
+    let rel2 = evalExpression exp2
+    let prefix = tryGetRelName exp2
+
+    match rel1, rel2 with
+    | Result.Ok rel1, Result.Ok rel2 -> product rel1 rel2 prefix |> Result.Ok
+    | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
+    | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
+    // When both relations are illegal, only raise the first error.
+    | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
 
 let evalPrintStmt identifier =
     let rel = Relation.openRelation identifier
@@ -302,6 +359,13 @@ let evalAdapted paserResult =
 
         | DifferenceExpression (exp1, exp2) ->
             let rel = evalDifferenceExpression exp1 exp2
+
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
+
+        | ProductExpression (exp1, exp2) ->
+            let rel = evalProductExpression exp1 exp2
 
             rel
             |> Result.map Relation.save

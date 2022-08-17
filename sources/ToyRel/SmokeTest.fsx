@@ -121,3 +121,14 @@ eval "restrict (Employee) (hoge = 1)"
 
 // When both conditions are invalid, only raise the first error (ColumnNotFound in this case)
 eval "restrict (Employee) ((hoge = 1) and (Name > \"Harry\"))"
+
+// Test the product
+eval "use wikipedia"
+eval "test = (Employee) product (Dept)"
+eval "print test"
+
+eval "test = (Employee) product (EmployeeTypeMismatch)"
+eval "print test"
+
+eval "test = (Employee) product (project (EmployeeTypeMismatch) EmpId)"
+eval "print test"

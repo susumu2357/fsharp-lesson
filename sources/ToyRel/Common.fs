@@ -15,6 +15,7 @@ type Expression =
     | ProjectExpression of ProjectExpression
     | DifferenceExpression of Expression * Expression
     | RestrictExpression of Expression * Condition
+    | ProductExpression of Expression * Expression
 
 and Identifier = string
 and ProjectExpression = Expression * ColumnList

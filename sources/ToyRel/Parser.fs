@@ -35,14 +35,20 @@ let pProjectExpression =
 
 let pIdentifierExpression = pIdentifier |>> Expression.Identifier
 
-let pDifferenceExpression =
-    let expression = (str_ws "(") >>. pExpression .>> (str_ws ")")
+let toTwoExpressionsType ((exp1, operator), exp2) =
+    match operator with
+    | "difference" -> DifferenceExpression(exp1, exp2)
+    | "product" -> ProductExpression(exp1, exp2)
+    | _ -> failwithf "operator should be one of 'difference' and 'product'"
 
-    let diffExpression =
-        expression
-        .>>. (str_ws "difference" >>. expression)
+let pTwoExpressions =
+    let expression1 = (str_ws "(") >>. pExpression .>> (str_ws ")")
+    let expression2 = (str_ws "(") >>. pExpression .>> (str_ws ")")
 
-    diffExpression |>> DifferenceExpression
+    (expression1
+     .>>. (str_ws ("difference") <|> str_ws ("product")))
+    .>>. expression2
+    |>> toTwoExpressionsType
 
 let pOperator =
     (str_ws "<>" >>% NotEqual)
@@ -86,19 +92,6 @@ let pSingleCondition =
     |>> SingleCondition
 
 
-let pANDCondition =
-    let cond1 = (str_ws "(") >>. pCondition .>> (str_ws ")")
-    let cond2 = (str_ws "(") >>. pCondition .>> (str_ws ")")
-
-    (cond1 .>> str_ws ("and")) .>>. cond2
-    |>> ANDCondition
-
-let pORCondition =
-    let cond1 = (str_ws "(") >>. pCondition .>> (str_ws ")")
-    let cond2 = (str_ws "(") >>. pCondition .>> (str_ws ")")
-
-    (cond1 .>> str_ws ("or")) .>>. cond2
-    |>> ORCondition
 
 let toAndOrType ((cond1, andOr), cond2) =
     match andOr with
@@ -137,13 +130,13 @@ pExpressionRef.Value <-
     pProjectExpression
     <|> pRestrictExpression
     <|> pIdentifierExpression
-    <|> pDifferenceExpression
+    <|> pTwoExpressions
 
 
 let pIdentifierStmt = pIdentifierExpression |>> Expression
 let pProjectStmt = pProjectExpression |>> Expression
-let pDifferenceStmt = pDifferenceExpression |>> Expression
 let pRestrictStmt = pRestrictExpression |>> Expression
+let pTwoExpressionsStmt = pTwoExpressions |>> Expression
 
 let pPrintStmt =
     let stmt = (str_ws "print") >>. pIdentifier
@@ -177,7 +170,7 @@ let pStmt =
     <|> pProjectStmt
     <|> pRestrictStmt
     <|> pAssignStmt
-    <|> pDifferenceStmt
+    <|> pTwoExpressionsStmt
     <|> pIdentifierStmt
 
 let paserResult =
