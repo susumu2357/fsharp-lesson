@@ -20,11 +20,12 @@ let getColsAndTypes: Frame<int, string> -> string list * Type list =
         cols, types
 
 /// <summary>Validate single column of Deedle Frame.</summary>
-/// <param name="df">The dataframe to be calidated.</param>
+/// <param name="df">The dataframe to be validated.</param>
 /// <param name="col">The column name. Should be a single string.</param>
 /// <returns>If the column of the dataframe is valid, returns ValidColumn.
 /// Float and Int columns are treated as valid Float column.
-/// If the column is invalid, returns one of cases of ColumnValidity.ConditionError.</returns>
+/// If the column is invalid, returns one of cases of ColumnValidity.ConditionError.
+/// For example, if the column name is not found in the dataframe, raise ColumnNotFound error.</returns>
 let validateColumn: Frame<int, string> -> string -> ColumnValidity =
     fun df col ->
         let colDf = df.Columns[[ col ]]
@@ -42,11 +43,12 @@ let validateColumn: Frame<int, string> -> string -> ColumnValidity =
             ColumnNotFound |> ColumnValidity.ConditionError
 
 /// <summary>Validate union comparability.
-/// If the relations have the same column names, the same column types, and the same order of columns, it is called union comparable.</summary>
+/// If the relations have the same column names, the same column types, and the same order of columns, these are called union comparable.</summary>
 /// <param name="df1">The Deedle Frame of the left hand side of 'difference'.</param>
 /// <param name="df2">The Deedle Frame of the right hand side of 'difference'.</param>
 /// <returns>If the inputs are union comparable, returns Comparable of Comparability type.
 /// Otherwise, returns one of cases of ComparabilityError.</returns>
+/// For example, if the column names do not match, raise ColumnsMismatch error.</returns>
 let validateComparability df1 df2 =
     let col1, colType1 = getColsAndTypes df1
     let col2, colType2 = getColsAndTypes df2
@@ -129,6 +131,8 @@ let rec evalCondition: EvalCondition =
 /// <param name="df">The Deedle Frame used in 'restrict' Expression.</param>
 /// <returns>If the input Condition is valid, returns ValidCondition of ConditionValidity type.
 /// Otherwise, returns one of cases of ConditionError.
+/// For example, if the operators other than equal or not equal are used for conditioning a string column,
+/// raise IlldifinedOperatorForStrings error.
 /// If there are multiple errors, only the left most error will be raised .</returns>
 let rec validateCondition condition df =
     match condition with
