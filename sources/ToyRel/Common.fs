@@ -13,17 +13,15 @@ type Value =
 type Expression =
     | Identifier of Identifier
     | ProjectExpression of ProjectExpression
-    | DifferenceExpression of Expression * Expression
+    | InfixExpression of ((Expression * InfixOperator) * Expression)
     | RestrictExpression of Expression * Condition
-    | ProductExpression of Expression * Expression
 
 and Identifier = string
 and ProjectExpression = Expression * ColumnList
 
 and Condition =
     | SingleCondition of SingleCondition
-    | ANDCondition of Condition * Condition
-    | ORCondition of Condition * Condition
+    | InfixCondition of ((Condition * LogicalOperator) * Condition)
     | NOTCondition of Condition
 
 and SingleCondition =
@@ -48,6 +46,13 @@ and Operator =
     | Greater
     | Equal
 
+and InfixOperator =
+    | Difference
+    | Product
+
+and LogicalOperator =
+    | And
+    | Or
 
 type ColOrVal =
     | Column of string

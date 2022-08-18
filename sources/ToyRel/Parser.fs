@@ -35,20 +35,16 @@ let pProjectExpression =
 
 let pIdentifierExpression = pIdentifier |>> Expression.Identifier
 
-let toTwoExpressionsType ((exp1, operator), exp2) =
-    match operator with
-    | "difference" -> DifferenceExpression(exp1, exp2)
-    | "product" -> ProductExpression(exp1, exp2)
-    | _ -> failwithf "operator should be one of 'difference' and 'product'"
 
-let pTwoExpressions =
+let pInfixExpression =
     let expression1 = (str_ws "(") >>. pExpression .>> (str_ws ")")
     let expression2 = (str_ws "(") >>. pExpression .>> (str_ws ")")
 
     (expression1
-     .>>. (str_ws ("difference") <|> str_ws ("product")))
+     .>>. ((str_ws ("difference") >>% Difference)
+           <|> (str_ws ("product") >>% Product)))
     .>>. expression2
-    |>> toTwoExpressionsType
+    |>> InfixExpression
 
 let pOperator =
     (str_ws "<>" >>% NotEqual)
@@ -93,19 +89,15 @@ let pSingleCondition =
 
 
 
-let toAndOrType ((cond1, andOr), cond2) =
-    match andOr with
-    | "and" -> ANDCondition(cond1, cond2)
-    | "or" -> ORCondition(cond1, cond2)
-    | _ -> failwithf "logical operator should be either 'and' or 'or'"
-
 let pAndOr =
     let cond1 = (str_ws "(") >>. pCondition .>> (str_ws ")")
     let cond2 = (str_ws "(") >>. pCondition .>> (str_ws ")")
 
-    (cond1 .>>. (str_ws ("and") <|> str_ws ("or")))
+    (cond1
+     .>>. ((str_ws ("and") >>% And)
+           <|> (str_ws ("or") >>% Or)))
     .>>. cond2
-    |>> toAndOrType
+    |>> InfixCondition
 
 let pNOTCondition =
     let cond = (str_ws "(") >>. pCondition .>> (str_ws ")")
@@ -130,13 +122,13 @@ pExpressionRef.Value <-
     pProjectExpression
     <|> pRestrictExpression
     <|> pIdentifierExpression
-    <|> pTwoExpressions
+    <|> pInfixExpression
 
 
 let pIdentifierStmt = pIdentifierExpression |>> Expression
 let pProjectStmt = pProjectExpression |>> Expression
 let pRestrictStmt = pRestrictExpression |>> Expression
-let pTwoExpressionsStmt = pTwoExpressions |>> Expression
+let pInfixStmt = pInfixExpression |>> Expression
 
 let pPrintStmt =
     let stmt = (str_ws "print") >>. pIdentifier
@@ -170,7 +162,7 @@ let pStmt =
     <|> pProjectStmt
     <|> pRestrictStmt
     <|> pAssignStmt
-    <|> pTwoExpressionsStmt
+    <|> pInfixStmt
     <|> pIdentifierStmt
 
 let paserResult =

@@ -99,6 +99,9 @@ eval "test = Employee"
 
 
 eval "use wikipedia"
+eval "(Employee) product (Dept)"
+eval "(Employee) product (project (Dept) DeptName)"
+
 let rel1 = Relation.openRelation "Employee"
 let rel2 = Relation.openRelation "Dept"
 
@@ -157,4 +160,33 @@ let expandRow (row: obj list) =
     |> List.toSeq
 
 expandRow RowsAsList[0]
-Frame(df1.ColumnKeys, expandRow RowsAsList[0])
+// Frame(df1.ColumnKeys, expandRow RowsAsList[0])
+
+let df4 =
+    df1.Columns
+    |> Series.mapValues (fun series ->
+        Series.values series
+        |> Seq.toList
+        |> List.map (fun elm -> List.replicate (Frame.countRows df2) elm)
+        |> List.concat
+        |> List.toSeq
+        |> Series.ofValues)
+    |> Frame.ofColumns
+
+df4.Print()
+
+let df5 =
+    renamedDf2.Columns
+    |> Series.mapValues (fun series ->
+        Series.values series
+        |> Seq.toList
+        |> List.replicate (Frame.countRows df1)
+        |> List.concat
+        |> List.toSeq
+        |> Series.ofValues)
+    |> Frame.ofColumns
+
+df5.Print()
+
+let df6 = df4.Join(df5)
+df6.Print()

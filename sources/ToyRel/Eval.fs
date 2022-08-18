@@ -97,14 +97,16 @@ let evalOperator a b op =
 let rec evalCondition: EvalCondition =
     fun cond ->
         match cond with
-        | ANDCondition (cond1, cond2) ->
-            fun row ->
-                (evalCondition cond1) row
-                && (evalCondition cond2) row
-        | ORCondition (cond1, cond2) ->
-            fun row ->
-                (evalCondition cond1) row
-                || (evalCondition cond2) row
+        | InfixCondition ((cond1, op), cond2) ->
+            match op with
+            | And ->
+                fun row ->
+                    (evalCondition cond1) row
+                    && (evalCondition cond2) row
+            | Or ->
+                fun row ->
+                    (evalCondition cond1) row
+                    || (evalCondition cond2) row
         | NOTCondition cond -> fun row -> not ((evalCondition cond) row)
         | SingleCondition cond ->
             match cond with
@@ -136,8 +138,10 @@ let rec evalCondition: EvalCondition =
 /// If there are multiple errors, only the left most error will be raised .</returns>
 let rec validateCondition condition df =
     match condition with
-    | ANDCondition (cond1, cond2) -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
-    | ORCondition (cond1, cond2) -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+    | InfixCondition ((cond1, op), cond2) ->
+        match op with
+        | And -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+        | Or -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
     | NOTCondition cond -> validateCondition cond df
     | SingleCondition cond ->
         match cond with
@@ -219,6 +223,8 @@ let tryGetRelName exp =
 let product rel1 rel2 prefix =
     let df1 = Relation.value rel1
     let df2 = Relation.value rel2
+    let N1 = Frame.countRows df1
+    let N2 = Frame.countRows df2
 
     let cols1 = df1.ColumnKeys |> Collections.Generic.HashSet
 
@@ -235,9 +241,8 @@ let product rel1 rel2 prefix =
         |> Series.mapValues (fun series ->
             Series.values series
             |> Seq.toList
-            |> List.map (fun elm -> List.replicate (Frame.countRows df2) elm)
+            |> List.map (fun elm -> List.replicate N2 elm)
             |> List.concat
-            |> List.toSeq
             |> Series.ofValues)
         |> Frame.ofColumns
 
@@ -246,9 +251,8 @@ let product rel1 rel2 prefix =
         |> Series.mapValues (fun series ->
             Series.values series
             |> Seq.toList
-            |> List.replicate (Frame.countRows df1)
+            |> List.replicate N1
             |> List.concat
-            |> List.toSeq
             |> Series.ofValues)
         |> Frame.ofColumns
 
@@ -260,9 +264,11 @@ let rec evalExpression: EvalExpression =
         match exp with
         | Identifier identifier -> Relation.openRelation identifier
         | ProjectExpression projectExpression -> evalProjectExpression projectExpression
-        | DifferenceExpression (exp1, exp2) -> evalDifferenceExpression exp1 exp2
+        | InfixExpression ((exp1, op), exp2) ->
+            match op with
+            | Difference -> evalDifferenceExpression exp1 exp2
+            | Product -> evalProductExpression exp1 exp2
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond
-        | ProductExpression (exp1, exp2) -> evalProductExpression exp1 exp2
 
 and evalProjectExpression: EvalProjectExpression =
     fun projectExp ->
@@ -357,19 +363,20 @@ let evalAdapted paserResult =
             |> Result.map Relation.save
             |> Result.map printRelationName
 
-        | DifferenceExpression (exp1, exp2) ->
-            let rel = evalDifferenceExpression exp1 exp2
+        | InfixExpression ((exp1, op), exp2) ->
+            match op with
+            | Difference ->
+                let rel = evalDifferenceExpression exp1 exp2
 
-            rel
-            |> Result.map Relation.save
-            |> Result.map printRelationName
+                rel
+                |> Result.map Relation.save
+                |> Result.map printRelationName
+            | Product ->
+                let rel = evalProductExpression exp1 exp2
 
-        | ProductExpression (exp1, exp2) ->
-            let rel = evalProductExpression exp1 exp2
-
-            rel
-            |> Result.map Relation.save
-            |> Result.map printRelationName
+                rel
+                |> Result.map Relation.save
+                |> Result.map printRelationName
 
         | RestrictExpression (exp, cond) ->
             let rel = evalRestrictExpression exp cond
