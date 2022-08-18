@@ -217,8 +217,13 @@ let validateColumnNames rel columnNames =
 
 let tryGetRelName exp =
     match exp with
-    | Identifier identifier -> identifier
-    | _ -> Identifier "Right"
+    | Identifier identifier -> Some identifier
+    | _ -> None
+
+let resolveName (name: Identifier option) defaultName =
+    match name with
+    | Some n -> n
+    | None -> defaultName
 
 let product rel1 rel2 prefix =
     let df1 = Relation.value rel1
@@ -258,6 +263,64 @@ let product rel1 rel2 prefix =
 
     expandedDf1.Join(expandedDf2) |> Relation.create
 
+let rec validateJoinCondition condition df1 df2 rel1Name rel2Name =
+    match condition with
+    | InfixCondition ((cond1, op), cond2) ->
+        match op with
+        | And -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+        | Or -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+    | NOTCondition cond -> validateCondition cond df
+    | SingleCondition cond ->
+        match cond with
+        | ColumnColumn { Column1 = col1
+                         Column2 = col2
+                         Operator = op } ->
+            let v1 = validateColumn df col1
+            let v2 = validateColumn df col2
+
+            match (v1, v2) with
+            | (ValidColumn c1, ValidColumn c2) ->
+                match (c1, c2) with
+                | (Float, Float) -> ValidCondition
+                | (String, String) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | (ColumnValidity.ConditionError e, ValidColumn _) -> e |> ConditionError
+            | (ValidColumn _, ColumnValidity.ConditionError e) -> e |> ConditionError
+            | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> e1 |> ConditionError
+
+        | ColumnValue { Column = col
+                        Value = value
+                        Operator = op } ->
+
+            let v1 = validateColumn df col
+
+            match v1 with
+            | ValidColumn c1 ->
+                match (c1, value) with
+                | (Float, Value.Float _) -> ValidCondition
+                | (String, Value.String _) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | ColumnValidity.ConditionError e -> e |> ConditionError
+
+
+
+let join rel1 rel2 rel1Name rel2Name cond  =
+    let df1 = Relation.value rel1
+    let df2 = Relation.value rel2
+
+    let conditionValidity = validateJoinCondition cond df1 df2 rel1Name rel2Name
+
+    let N1 = Frame.countRows df1
+    let N2 = Frame.countRows df2
+
 
 let rec evalExpression: EvalExpression =
     fun exp ->
@@ -269,6 +332,7 @@ let rec evalExpression: EvalExpression =
             | Difference -> evalDifferenceExpression exp1 exp2
             | Product -> evalProductExpression exp1 exp2
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond
+        | JoinExpression ((exp1, exp2), cond) -> evalJoinExpression exp1 exp2 cond
 
 and evalProjectExpression: EvalProjectExpression =
     fun projectExp ->
@@ -311,7 +375,7 @@ and evalRestrictExpression exp cond =
 and evalProductExpression exp1 exp2 =
     let rel1 = evalExpression exp1
     let rel2 = evalExpression exp2
-    let prefix = tryGetRelName exp2
+    let prefix = resolveName (tryGetRelName exp2) "Right"
 
     match rel1, rel2 with
     | Result.Ok rel1, Result.Ok rel2 -> product rel1 rel2 prefix |> Result.Ok
@@ -319,6 +383,19 @@ and evalProductExpression exp1 exp2 =
     | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
     // When both relations are illegal, only raise the first error.
     | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
+
+and evalJoinExpression exp1 exp2 cond =
+    let rel1 = evalExpression exp1
+    let rel2 = evalExpression exp2
+    let rel1Name = tryGetRelName exp1
+    let rel2Name = tryGetRelName exp2
+
+    match rel1, rel2 with
+    | Result.Ok rel1, Result.Ok rel2 -> join rel1 rel2 rel1Name rel2Name cond |> Result.Ok
+    | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
+    | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
+    // When both relations are illegal, only raise the first error.
+    | Result.Error err1, Result.Error err2 -> err1 |> Result.Error    
 
 let evalPrintStmt identifier =
     let rel = Relation.openRelation identifier
@@ -380,6 +457,13 @@ let evalAdapted paserResult =
 
         | RestrictExpression (exp, cond) ->
             let rel = evalRestrictExpression exp cond
+
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
+
+        | JoinExpression ((exp1, exp2), cond) ->
+            let rel = evalJoinExpression exp1 exp2 cond
 
             rel
             |> Result.map Relation.save

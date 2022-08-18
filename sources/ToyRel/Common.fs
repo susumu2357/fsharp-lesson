@@ -4,8 +4,6 @@ module Common
 let databaseBase = ".\\database\\"
 let mutable dbPath = "master\\"
 
-type ColumnList = ColumnList of string list
-
 type Value =
     | Float of float
     | String of string
@@ -15,8 +13,10 @@ type Expression =
     | ProjectExpression of ProjectExpression
     | InfixExpression of ((Expression * InfixOperator) * Expression)
     | RestrictExpression of Expression * Condition
+    | JoinExpression of ((Expression * Expression) * Condition)
 
 and Identifier = string
+
 and ProjectExpression = Expression * ColumnList
 
 and Condition =
@@ -31,12 +31,15 @@ and SingleCondition =
 and ColumnColumn =
     { Column1: string
       Column2: string
-      Operator: Operator }
+      Operator: Operator
+      Relation1: string option
+      Relation2: string option }
 
 and ColumnValue =
     { Column: string
       Value: Value
-      Operator: Operator }
+      Operator: Operator
+      Relation: string option }
 
 and Operator =
     | NotEqual
@@ -54,9 +57,15 @@ and LogicalOperator =
     | And
     | Or
 
+and ColumnList = ColumnList of Identifier list
+
 type ColOrVal =
-    | Column of string
+    | Column of DotColumn
     | Value of Value
+
+and DotColumn =
+    | SingleIdentifier of string
+    | DoubleIdentifier of string * string
 
 type Statement =
     | PrintStmt of Identifier

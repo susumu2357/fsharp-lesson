@@ -16,8 +16,16 @@ let pSBracketColumn =
     (pstring "[") >>. many1Satisfy notSBracket
     .>> (str_ws "]")
 
+let pDoubleIdentifier =
+    (((regex identifierRegex) .>> pstring "\.")
+     .>>. ((regex identifierRegex) <|> pSBracketColumn))
+    .>> ws
+
 let pColumn = pIdentifier <|> pSBracketColumn
 
+let pDotColumn =
+    (pColumn |>> SingleIdentifier)
+    <|> (pDoubleIdentifier |>> DoubleIdentifier)
 
 let pColumnList = sepBy pColumn (str_ws ",") |>> ColumnList
 
@@ -64,14 +72,44 @@ let pValue =
          |>> ColOrVal.Value)
 
 let toColumnColumn ((col1, op), col2) =
-    { Column1 = col1
-      Column2 = col2
-      Operator = op }
+    match (col1, col2) with
+    | (DoubleIdentifier (r1, c1), DoubleIdentifier (r2, c2)) ->
+        { Column1 = c1
+          Column2 = c2
+          Operator = op
+          Relation1 = Some r1
+          Relation2 = Some r2 }
+    | (DoubleIdentifier (r1, c1), SingleIdentifier c2) ->
+        { Column1 = c1
+          Column2 = c2
+          Operator = op
+          Relation1 = Some r1
+          Relation2 = None }
+    | (SingleIdentifier c1, DoubleIdentifier (r2, c2)) ->
+        { Column1 = c1
+          Column2 = c2
+          Operator = op
+          Relation1 = None
+          Relation2 = Some r2 }
+    | (SingleIdentifier c1, SingleIdentifier c2) ->
+        { Column1 = c1
+          Column2 = c2
+          Operator = op
+          Relation1 = None
+          Relation2 = None }
 
 let toColumnValue ((col, op), value) =
-    { Column = col
-      Value = value
-      Operator = op }
+    match col with
+    | DoubleIdentifier (r, c) ->
+        { Column = c
+          Value = value
+          Operator = op
+          Relation = Some r }
+    | SingleIdentifier c ->
+        { Column = c
+          Value = value
+          Operator = op
+          Relation = None }
 
 let toConditionType ((col, op), colOrVal) =
     match colOrVal with
@@ -81,9 +119,9 @@ let toConditionType ((col, op), colOrVal) =
 let pCondition, pConditionRef = createParserForwardedToRef ()
 
 let pSingleCondition =
-    pColumn
+    pDotColumn
     .>>. pOperator
-    .>>. (pColumn |>> ColOrVal.Column <|> pValue)
+    .>>. (pDotColumn |>> ColOrVal.Column <|> pValue)
     |>> toConditionType
     |>> SingleCondition
 
@@ -117,10 +155,23 @@ let pRestrictExpression =
 
     expression .>>. condition |>> RestrictExpression
 
+let pJoinExpression =
+    let expression1 =
+        (str_ws "join") >>. (str_ws "(") >>. pExpression
+        .>> (str_ws ")")
+
+    let expression2 = (str_ws "(") >>. pExpression .>> (str_ws ")")
+
+    let condition = (str_ws "(") >>. pCondition .>> (str_ws ")")
+
+    expression1 .>>. expression2 .>>. condition
+    |>> JoinExpression
+
 
 pExpressionRef.Value <-
     pProjectExpression
     <|> pRestrictExpression
+    <|> pJoinExpression
     <|> pIdentifierExpression
     <|> pInfixExpression
 
@@ -129,6 +180,7 @@ let pIdentifierStmt = pIdentifierExpression |>> Expression
 let pProjectStmt = pProjectExpression |>> Expression
 let pRestrictStmt = pRestrictExpression |>> Expression
 let pInfixStmt = pInfixExpression |>> Expression
+let pJoinStmt = pJoinExpression |>> Expression
 
 let pPrintStmt =
     let stmt = (str_ws "print") >>. pIdentifier
@@ -161,6 +213,7 @@ let pStmt =
     <|> pQuitStmt
     <|> pProjectStmt
     <|> pRestrictStmt
+    <|> pJoinStmt
     <|> pAssignStmt
     <|> pInfixStmt
     <|> pIdentifierStmt
