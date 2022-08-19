@@ -4,21 +4,25 @@ module Common
 let databaseBase = ".\\database\\"
 let mutable dbPath = "master\\"
 
-type ColumnList = ColumnList of string list
+type Value =
+    | Float of float
+    | String of string
 
 type Expression =
     | Identifier of Identifier
     | ProjectExpression of ProjectExpression
-    | DifferenceExpression of Expression * Expression
+    | InfixExpression of ((Expression * InfixOperator) * Expression)
     | RestrictExpression of Expression * Condition
+    | JoinExpression of ((Expression * Expression) * Condition)
 
 and Identifier = string
+
 and ProjectExpression = Expression * ColumnList
 
 and Condition =
     | SingleCondition of SingleCondition
-    | ANDCondition of Condition * Condition
-    | ORCondition of Condition * Condition
+    | InfixCondition of ((Condition * LogicalOperator) * Condition)
+    | NOTCondition of Condition
 
 and SingleCondition =
     | ColumnColumn of ColumnColumn
@@ -27,12 +31,15 @@ and SingleCondition =
 and ColumnColumn =
     { Column1: string
       Column2: string
-      Operator: Operator }
+      Operator: Operator
+      Relation1: string option
+      Relation2: string option }
 
 and ColumnValue =
     { Column: string
       Value: Value
-      Operator: Operator }
+      Operator: Operator
+      Relation: string option }
 
 and Operator =
     | NotEqual
@@ -42,9 +49,23 @@ and Operator =
     | Greater
     | Equal
 
-and Value =
-    | Float of float
-    | String of string
+and InfixOperator =
+    | Difference
+    | Product
+
+and LogicalOperator =
+    | And
+    | Or
+
+and ColumnList = ColumnList of Identifier list
+
+type ColOrVal =
+    | Column of DotColumn
+    | Value of Value
+
+and DotColumn =
+    | SingleIdentifier of string
+    | DoubleIdentifier of string * string
 
 type Statement =
     | PrintStmt of Identifier
@@ -71,10 +92,26 @@ and ComparabilityError =
     | ColumnTypesMismatch
     | ColumnsOrderMismatch
 
-and ConditionError = ConditionError
+and ConditionError =
+    | TypesMismatch
+    | IlldifinedOperatorForStrings
+    | UnsupportedColumnType
+    | ColumnNotFound
 
-type Comparability<'a> =
-    | Comparable of 'a list
+type ColumnValidity =
+    | ValidColumn of ValidColumn
+    | ConditionError of ConditionError
+
+and ValidColumn =
+    | Float
+    | String
+
+type ConditionValidity =
+    | ValidCondition
+    | ConditionError of ConditionError
+
+type Comparability =
+    | Comparable
     | ComparabilityError of ComparabilityError
 
 type EvaluationError =
@@ -82,3 +119,11 @@ type EvaluationError =
     | ExecutionError of ExecutionError
 
 and ParseError = ParseError of string
+
+let combineValidity (v1: ConditionValidity) (v2: ConditionValidity) =
+    match (v1, v2) with
+    | (ValidCondition, ValidCondition) -> ValidCondition
+    | (ValidCondition, ConditionError e) -> ConditionError e
+    | (ConditionError e, ValidCondition) -> ConditionError e
+    // When both conditions are invalid, only raise the first error.
+    | (ConditionError e1, ConditionError e2) -> ConditionError e1

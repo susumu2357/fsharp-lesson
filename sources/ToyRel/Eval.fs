@@ -5,7 +5,6 @@ open Deedle
 
 open Common
 open Relation
-open Parser
 
 type EvalExpression = Expression -> Result<Relation.T, ExecutionError>
 type EvalProjectExpression = ProjectExpression -> Result<Relation.T, ExecutionError>
@@ -20,6 +19,36 @@ let getColsAndTypes: Frame<int, string> -> string list * Type list =
         let types = df.ColumnTypes |> Seq.toList
         cols, types
 
+/// <summary>Validate single column of Deedle Frame.</summary>
+/// <param name="df">The dataframe to be validated.</param>
+/// <param name="col">The column name. Should be a single string.</param>
+/// <returns>If the column of the dataframe is valid, returns ValidColumn.
+/// Float and Int columns are treated as valid Float column.
+/// If the column is invalid, returns one of cases of ColumnValidity.ConditionError.
+/// For example, if the column name is not found in the dataframe, raise ColumnNotFound error.</returns>
+let validateColumn: Frame<int, string> -> string -> ColumnValidity =
+    fun df col ->
+        let colDf = df.Columns[[ col ]]
+
+        if Frame.countRows colDf >= 1 then
+            let (_, t) = getColsAndTypes colDf
+
+            match t.[0] with
+            | t when (t = typeof<float> || t = typeof<int32>) -> Float |> ValidColumn
+            | t when t = typeof<string> -> String |> ValidColumn
+            | _ ->
+                UnsupportedColumnType
+                |> ColumnValidity.ConditionError
+        else
+            ColumnNotFound |> ColumnValidity.ConditionError
+
+/// <summary>Validate union comparability.
+/// If the relations have the same column names, the same column types, and the same order of columns, these are called union comparable.</summary>
+/// <param name="df1">The Deedle Frame of the left hand side of 'difference'.</param>
+/// <param name="df2">The Deedle Frame of the right hand side of 'difference'.</param>
+/// <returns>If the inputs are union comparable, returns Comparable of Comparability type.
+/// Otherwise, returns one of cases of ComparabilityError.</returns>
+/// For example, if the column names do not match, raise ColumnsMismatch error.</returns>
 let validateComparability df1 df2 =
     let col1, colType1 = getColsAndTypes df1
     let col2, colType2 = getColsAndTypes df2
@@ -28,7 +57,7 @@ let validateComparability df1 df2 =
     let checkTypes = (colType1 = colType2)
 
     match (checkColumns, checkTypes) with
-    | (true, true) -> Comparable colType1
+    | (true, true) -> Comparable
     | (true, false) -> ColumnTypesMismatch |> ComparabilityError
     | (false, _) ->
         if List.sort col1 = List.sort col2 then
@@ -61,17 +90,24 @@ let evalOperator a b op =
     | Greater -> a > b
     | Equal -> a = b
 
+/// <summary>Evaluate Condition of 'restrict'.
+/// AND and OR conditions are recursively evaluated.</summary>
+/// <param name="cond">The Condition which should be validated before executing this function.</param>
+/// <returns>The function to be used in Series.filterValues.</returns>
 let rec evalCondition: EvalCondition =
     fun cond ->
         match cond with
-        | ANDCondition (cond1, cond2) ->
-            fun row ->
-                (evalCondition cond1) row
-                && (evalCondition cond2) row
-        | ORCondition (cond1, cond2) ->
-            fun row ->
-                (evalCondition cond1) row
-                || (evalCondition cond2) row
+        | InfixCondition ((cond1, op), cond2) ->
+            match op with
+            | And ->
+                fun row ->
+                    (evalCondition cond1) row
+                    && (evalCondition cond2) row
+            | Or ->
+                fun row ->
+                    (evalCondition cond1) row
+                    || (evalCondition cond2) row
+        | NOTCondition cond -> fun row -> not ((evalCondition cond) row)
         | SingleCondition cond ->
             match cond with
             | ColumnColumn { Column1 = col1
@@ -88,74 +124,72 @@ let rec evalCondition: EvalCondition =
                             Value = value
                             Operator = op } ->
                 match value with
-                | Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
-                | String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
+                | Value.Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
+                | Value.String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
 
-let rec validateCondition (condition: Condition, df: Frame<int, string>) =
+/// <summary>Validate Condition will be used in 'restrict'.
+/// AND and OR conditions are recursively evaluated.</summary>
+/// <param name="condition">The Condition parsed from 'restrict' Expression.</param>
+/// <param name="df">The Deedle Frame used in 'restrict' Expression.</param>
+/// <returns>If the input Condition is valid, returns ValidCondition of ConditionValidity type.
+/// Otherwise, returns one of cases of ConditionError.
+/// For example, if the operators other than equal or not equal are used for conditioning a string column,
+/// raise IlldifinedOperatorForStrings error.
+/// If there are multiple errors, only the left most error will be raised .</returns>
+let rec validateCondition condition df =
     match condition with
-    | ANDCondition (cond1, cond2) ->
-        validateCondition (cond1, df)
-        + validateCondition (cond2, df)
-    | ORCondition (cond1, cond2) ->
-        validateCondition (cond1, df)
-        + validateCondition (cond2, df)
+    | InfixCondition ((cond1, op), cond2) ->
+        match op with
+        | And -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+        | Or -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+    | NOTCondition cond -> validateCondition cond df
     | SingleCondition cond ->
         match cond with
         | ColumnColumn { Column1 = col1
                          Column2 = col2
                          Operator = op } ->
-            let df1 = df.Columns[[ col1 ]]
-            let df2 = df.Columns[[ col2 ]]
+            let v1 = validateColumn df col1
+            let v2 = validateColumn df col2
 
-            let (_, t1) = getColsAndTypes df1
-            let (_, t2) = getColsAndTypes df2
-
-            if t1 = t2 then
-                let tp = t1.[0]
-
-                match tp with
-                | t when (t = typeof<float> || t = typeof<int32>) -> 0
-                | t when
-                    (t = typeof<string>
-                     && ((op = Equal) || (op = NotEqual)))
-                    ->
-                    0
-                | _ -> 2
-            else
-                2
+            match (v1, v2) with
+            | (ValidColumn c1, ValidColumn c2) ->
+                match (c1, c2) with
+                | (Float, Float) -> ValidCondition
+                | (String, String) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | (ColumnValidity.ConditionError e, ValidColumn _) -> e |> ConditionError
+            | (ValidColumn _, ColumnValidity.ConditionError e) -> e |> ConditionError
+            | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> e1 |> ConditionError
 
         | ColumnValue { Column = col
                         Value = value
                         Operator = op } ->
 
-            let df1 = df.Columns[[ col ]]
+            let v1 = validateColumn df col
 
-            match validateComparability df1 df1 with
-            | Comparable colTypes ->
-                let tp = colTypes.[0]
-
-                match tp with
-                | t when (t = typeof<float> || t = typeof<int32>) ->
-                    match value with
-                    | Float _ -> 0
-                    | _ -> 2
-                | t when
-                    (t = typeof<string>
-                     && ((op = Equal) || (op = NotEqual)))
-                    ->
-                    match value with
-                    | String _ -> 0
-                    | _ -> 2
-                | _ -> 2
-            | _ -> 1
-
+            match v1 with
+            | ValidColumn c1 ->
+                match (c1, value) with
+                | (Float, Value.Float _) -> ValidCondition
+                | (String, Value.String _) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | ColumnValidity.ConditionError e -> e |> ConditionError
 
 
 let restriction rel cond =
     let df = Relation.value rel
-    let validateInt = validateCondition (cond, df)
+    let conditionValidity = validateCondition cond df
 
-    if validateInt = 0 then
+    match conditionValidity with
+    | ValidCondition _ ->
         let condition = evalCondition cond
 
         df.RowsDense
@@ -163,15 +197,17 @@ let restriction rel cond =
         |> Frame.ofRows
         |> Relation.create
         |> Result.Ok
-    elif validateInt % 2 = 1 then
-        ColumnTypesMismatch
-        |> Result.Error
-        |> Result.mapError ExecutionError.ComparabilityError
-    else
-        ConditionError
+
+    | ConditionError err ->
+        err
         |> Result.Error
         |> Result.mapError ExecutionError.ConditionError
 
+/// <summary>Validate column name existence, which is used in 'project'.</summary>
+/// <param name="rel">The Relation parsed from 'project' Expression.</param>
+/// <param name="columnNames">The string list of column names parsed from 'project' Expression.</param>
+/// <returns>If the columnNames exsit in the input relation, returns true.
+/// Otherwise, returns false.</returns>
 let validateColumnNames rel columnNames =
     let refColumnNames = (Relation.value rel).ColumnKeys |> Seq.toList
 
@@ -179,13 +215,124 @@ let validateColumnNames rel columnNames =
     |> List.map (fun elm -> refColumnNames |> List.contains elm)
     |> List.fold (fun acc elm -> acc && elm) true
 
+let tryGetRelName exp =
+    match exp with
+    | Identifier identifier -> Some identifier
+    | _ -> None
+
+let resolveName (name: Identifier option) defaultName =
+    match name with
+    | Some n -> n
+    | None -> defaultName
+
+let product rel1 rel2 prefix =
+    let df1 = Relation.value rel1
+    let df2 = Relation.value rel2
+    let N1 = Frame.countRows df1
+    let N2 = Frame.countRows df2
+
+    let cols1 = df1.ColumnKeys |> Collections.Generic.HashSet
+
+    let renaming col =
+        if cols1.Contains col then
+            prefix + "." + col
+        else
+            col
+
+    let renamedDf2 = df2 |> Frame.mapColKeys renaming
+
+    let expandedDf1 =
+        df1.Columns
+        |> Series.mapValues (fun series ->
+            Series.values series
+            |> Seq.toList
+            |> List.map (fun elm -> List.replicate N2 elm)
+            |> List.concat
+            |> Series.ofValues)
+        |> Frame.ofColumns
+
+    let expandedDf2 =
+        renamedDf2.Columns
+        |> Series.mapValues (fun series ->
+            Series.values series
+            |> Seq.toList
+            |> List.replicate N1
+            |> List.concat
+            |> Series.ofValues)
+        |> Frame.ofColumns
+
+    expandedDf1.Join(expandedDf2) |> Relation.create
+
+let rec validateJoinCondition condition df1 df2 rel1Name rel2Name =
+    match condition with
+    | InfixCondition ((cond1, op), cond2) ->
+        match op with
+        | And -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+        | Or -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
+    | NOTCondition cond -> validateCondition cond df
+    | SingleCondition cond ->
+        match cond with
+        | ColumnColumn { Column1 = col1
+                         Column2 = col2
+                         Operator = op } ->
+            let v1 = validateColumn df col1
+            let v2 = validateColumn df col2
+
+            match (v1, v2) with
+            | (ValidColumn c1, ValidColumn c2) ->
+                match (c1, c2) with
+                | (Float, Float) -> ValidCondition
+                | (String, String) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | (ColumnValidity.ConditionError e, ValidColumn _) -> e |> ConditionError
+            | (ValidColumn _, ColumnValidity.ConditionError e) -> e |> ConditionError
+            | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> e1 |> ConditionError
+
+        | ColumnValue { Column = col
+                        Value = value
+                        Operator = op } ->
+
+            let v1 = validateColumn df col
+
+            match v1 with
+            | ValidColumn c1 ->
+                match (c1, value) with
+                | (Float, Value.Float _) -> ValidCondition
+                | (String, Value.String _) ->
+                    match op with
+                    | Equal -> ValidCondition
+                    | NotEqual -> ValidCondition
+                    | _ -> IlldifinedOperatorForStrings |> ConditionError
+                | _ -> TypesMismatch |> ConditionError
+            | ColumnValidity.ConditionError e -> e |> ConditionError
+
+
+
+let join rel1 rel2 rel1Name rel2Name cond  =
+    let df1 = Relation.value rel1
+    let df2 = Relation.value rel2
+
+    let conditionValidity = validateJoinCondition cond df1 df2 rel1Name rel2Name
+
+    let N1 = Frame.countRows df1
+    let N2 = Frame.countRows df2
+
+
 let rec evalExpression: EvalExpression =
     fun exp ->
         match exp with
         | Identifier identifier -> Relation.openRelation identifier
         | ProjectExpression projectExpression -> evalProjectExpression projectExpression
-        | DifferenceExpression (exp1, exp2) -> evalDifferenceExpression exp1 exp2
+        | InfixExpression ((exp1, op), exp2) ->
+            match op with
+            | Difference -> evalDifferenceExpression exp1 exp2
+            | Product -> evalProductExpression exp1 exp2
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond
+        | JoinExpression ((exp1, exp2), cond) -> evalJoinExpression exp1 exp2 cond
 
 and evalProjectExpression: EvalProjectExpression =
     fun projectExp ->
@@ -197,7 +344,9 @@ and evalProjectExpression: EvalProjectExpression =
             if validateColumnNames rel columns then
                 Relation.project rel columns |> Result.Ok
             else
-                ColumnNotFound |> ProjectionError |> Result.Error
+                ProjectionError.ColumnNotFound
+                |> ProjectionError
+                |> Result.Error
 
         rel |> Result.bind (project columns)
 
@@ -223,6 +372,31 @@ and evalRestrictExpression exp cond =
     | Result.Ok rel -> restriction rel cond
     | Result.Error err -> err |> Result.Error
 
+and evalProductExpression exp1 exp2 =
+    let rel1 = evalExpression exp1
+    let rel2 = evalExpression exp2
+    let prefix = resolveName (tryGetRelName exp2) "Right"
+
+    match rel1, rel2 with
+    | Result.Ok rel1, Result.Ok rel2 -> product rel1 rel2 prefix |> Result.Ok
+    | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
+    | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
+    // When both relations are illegal, only raise the first error.
+    | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
+
+and evalJoinExpression exp1 exp2 cond =
+    let rel1 = evalExpression exp1
+    let rel2 = evalExpression exp2
+    let rel1Name = tryGetRelName exp1
+    let rel2Name = tryGetRelName exp2
+
+    match rel1, rel2 with
+    | Result.Ok rel1, Result.Ok rel2 -> join rel1 rel2 rel1Name rel2Name cond |> Result.Ok
+    | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
+    | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
+    // When both relations are illegal, only raise the first error.
+    | Result.Error err1, Result.Error err2 -> err1 |> Result.Error    
+
 let evalPrintStmt identifier =
     let rel = Relation.openRelation identifier
 
@@ -231,7 +405,6 @@ let evalPrintStmt identifier =
 
 let evalAssignStmt (basename, expression) =
     let rel = evalExpression expression
-    printfn "%A" rel
     rel |> Result.map (Relation.saveAs basename)
 
 let listing path =
@@ -245,49 +418,59 @@ let listing path =
 
 let printRelationName rel = printfn "Relation %s returned." rel
 
-let eval str =
-    let evalAdapted paserResult =
-        match paserResult with
-        | PrintStmt printStmt -> evalPrintStmt printStmt
-        | AssignStmt (basename, expression) -> evalAssignStmt (basename, expression)
-        | ListingStmt _ -> listing (databaseBase + dbPath)
-        | QuitStmt _ -> Environment.Exit 1 |> Result.Ok
-        | UseStmt newDBName ->
-            let newdbPath = newDBName + @"\\"
-            printfn "changed database from %s to %s" dbPath newdbPath
-            dbPath <- newdbPath
-            Result.Ok()
-        | Expression exp ->
-            match exp with
-            | ProjectExpression projectExpression ->
-                let rel = evalProjectExpression projectExpression
+let evalAdapted paserResult =
+    match paserResult with
+    | PrintStmt printStmt -> evalPrintStmt printStmt
+    | AssignStmt (basename, expression) ->
+        evalAssignStmt (basename, expression)
+        |> Result.map (fun () -> printRelationName basename)
+    | ListingStmt _ -> listing (databaseBase + dbPath)
+    | QuitStmt _ -> Environment.Exit 1 |> Result.Ok
+    | UseStmt newDBName ->
+        let newdbPath = newDBName + @"\\"
+        printfn "changed database from %s to %s" dbPath newdbPath
+        dbPath <- newdbPath
+        Result.Ok()
+    | Expression exp ->
+        match exp with
+        | ProjectExpression projectExpression ->
+            let rel = evalProjectExpression projectExpression
 
-                rel
-                |> Result.map Relation.save
-                |> Result.map printRelationName
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
 
-            | DifferenceExpression (exp1, exp2) ->
+        | InfixExpression ((exp1, op), exp2) ->
+            match op with
+            | Difference ->
                 let rel = evalDifferenceExpression exp1 exp2
 
                 rel
                 |> Result.map Relation.save
                 |> Result.map printRelationName
-
-            | RestrictExpression (exp, cond) ->
-                let rel = evalRestrictExpression exp cond
+            | Product ->
+                let rel = evalProductExpression exp1 exp2
 
                 rel
                 |> Result.map Relation.save
                 |> Result.map printRelationName
 
-            | Identifier identifier ->
-                printfn "Only relation name is provided."
-                printfn "Do you mean \"print\" ?" |> Result.Ok
+        | RestrictExpression (exp, cond) ->
+            let rel = evalRestrictExpression exp cond
 
-        |> Result.mapError ExecutionError
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
 
-    let paserResultAdapted =
-        paserResult pStmt str
-        |> Result.mapError EvaluationError.ParseError
+        | JoinExpression ((exp1, exp2), cond) ->
+            let rel = evalJoinExpression exp1 exp2 cond
 
-    paserResultAdapted |> Result.bind evalAdapted
+            rel
+            |> Result.map Relation.save
+            |> Result.map printRelationName
+
+        | Identifier identifier ->
+            printfn "Only relation name is provided."
+            printfn "Do you mean \"print\" ?" |> Result.Ok
+
+    |> Result.mapError ExecutionError
