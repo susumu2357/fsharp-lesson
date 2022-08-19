@@ -12,7 +12,8 @@ open RadLine
 open System
 
 Environment.CurrentDirectory
-Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
+// Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
+Environment.CurrentDirectory <- @"C:\Users\susum\Documents\fsharp-lesson\sources\ToyRel"
 
 #load "Common.fs"
 open Common
@@ -190,3 +191,37 @@ df5.Print()
 
 let df6 = df4.Join(df5)
 df6.Print()
+
+eval "use wikipedia"
+eval "test = join (Employee) (Dept) (Employee.DeptName = Dept.DeptName)"
+eval "test = join (Employee) (Dept) (Dept.DeptName = Employee.DeptName)"
+eval "test = join (project (Employee) DeptName, Name) (Dept) (DeptName = Dept.DeptName)"
+eval "test = join (Employee) (Dept) ((Employee.DeptName = Dept.DeptName) and (Employee.Name <> Dept.Manager))"
+eval "test = join (Employee) (Dept) ((Employee.DeptName = Dept.DeptName) and (Employee.DeptName = \"Finance\"))"
+eval "test = join (Employee) (Dept) ((Employee.DeptName = Dept.DeptName) and (Employee.DeptName = \"Sales\"))"
+eval "test = join (project (Employee) DeptName, Name) (Dept) (Name = \"Harry\")"
+
+let rel1Name = Some (Identifier "Employee")
+let rel2Name = Some (Identifier "Dept")
+
+let cond = 
+    { Column1 = "DeptName"
+      Column2 = "DeptName"
+      Operator = Equal
+      Relation1 = Some "Employee"
+      Relation2 = Some "Dept"}
+    |> ColumnColumn
+    |> Condition.SingleCondition
+
+let renamedDf (df: Frame<int, string>) relName =
+    let cols = df.ColumnKeys |> Seq.toList
+    let rename col =
+        relName + "." + col
+    df |> Frame.mapColKeys rename
+
+let df3 = renamedDf df1 "testRel"
+df3.Print()
+
+let df4 = renamedDf df2 "testRel2"
+df4.Print()
+

@@ -5,7 +5,7 @@ let databaseBase = ".\\database\\"
 let mutable dbPath = "master\\"
 
 type Value =
-    | Float of float
+    | Decimal of decimal
     | String of string
 
 type Expression =
@@ -97,14 +97,16 @@ and ConditionError =
     | IlldifinedOperatorForStrings
     | UnsupportedColumnType
     | ColumnNotFound
+    | IncorrectRelationName
+    | RelationNameUnavailable
 
 type ColumnValidity =
     | ValidColumn of ValidColumn
     | ConditionError of ConditionError
 
 and ValidColumn =
-    | Float
-    | String
+    | Decimal
+    | String   
 
 type ConditionValidity =
     | ValidCondition
@@ -127,3 +129,23 @@ let combineValidity (v1: ConditionValidity) (v2: ConditionValidity) =
     | (ConditionError e, ValidCondition) -> ConditionError e
     // When both conditions are invalid, only raise the first error.
     | (ConditionError e1, ConditionError e2) -> ConditionError e1
+
+let combineColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
+    match (v1, v2) with
+    | (ValidColumn t1, ValidColumn t2) -> 
+        if t1 = t2 then ValidColumn t1
+        else TypesMismatch |> ColumnValidity.ConditionError
+    | (ValidColumn t1, ColumnValidity.ConditionError e) -> ColumnValidity.ConditionError e
+    | (ColumnValidity.ConditionError e, ValidColumn t2) -> ColumnValidity.ConditionError e
+    // When both conditions are invalid, only raise the first error.
+    | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> ColumnValidity.ConditionError e1
+
+let updateColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
+    match (v1, v2) with
+    // When both columns are valid, pass the first column.
+    | (ValidColumn t1, ValidColumn t2) -> ValidColumn t1
+    | (ValidColumn t1, ColumnValidity.ConditionError e) -> ValidColumn t1
+    | (ColumnValidity.ConditionError e, ValidColumn t2) -> ValidColumn t2
+    // When both columns are invalid, only raise the first error.
+    | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> ColumnValidity.ConditionError e1
+
