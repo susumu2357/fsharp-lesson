@@ -18,12 +18,14 @@ let pSBracketColumn =
 
 let pColumn = pIdentifier <|> pSBracketColumn
 
-let pDoubleIdentifier =
-    ((regex identifierRegex) .>> pstring ".") .>>. pColumn
+let pQualifiedIdentifier =
+    ((regex identifierRegex) .>> pstring ".")
+    .>>. pColumn
 
 
 let pDotColumn =
-    (attempt pDoubleIdentifier |>> DoubleIdentifier)
+    (attempt pQualifiedIdentifier
+     |>> QualifiedIdentifier)
     <|> (pColumn |>> SingleIdentifier)
 
 let pColumnList = sepBy pColumn (str_ws ",") |>> ColumnList
@@ -64,7 +66,10 @@ let pOperator =
 let pValue =
     let notQuotation = satisfy (fun c -> c <> '\"')
 
-    (pfloat .>> ws |>>  decimal |>> Value.Decimal |>> ColOrVal.Value)
+    (pfloat .>> ws
+     |>> decimal
+     |>> Value.Decimal
+     |>> ColOrVal.Value)
     <|> (str_ws "\"" >>. (manyChars notQuotation)
          .>> str_ws "\""
          |>> Value.String
@@ -72,19 +77,19 @@ let pValue =
 
 let toColumnColumn ((col1, op), col2) =
     match (col1, col2) with
-    | (DoubleIdentifier (r1, c1), DoubleIdentifier (r2, c2)) ->
+    | (QualifiedIdentifier (r1, c1), QualifiedIdentifier (r2, c2)) ->
         { Column1 = c1
           Column2 = c2
           Operator = op
           Relation1 = Some r1
           Relation2 = Some r2 }
-    | (DoubleIdentifier (r1, c1), SingleIdentifier c2) ->
+    | (QualifiedIdentifier (r1, c1), SingleIdentifier c2) ->
         { Column1 = c1
           Column2 = c2
           Operator = op
           Relation1 = Some r1
           Relation2 = None }
-    | (SingleIdentifier c1, DoubleIdentifier (r2, c2)) ->
+    | (SingleIdentifier c1, QualifiedIdentifier (r2, c2)) ->
         { Column1 = c1
           Column2 = c2
           Operator = op
@@ -99,7 +104,7 @@ let toColumnColumn ((col1, op), col2) =
 
 let toColumnValue ((col, op), value) =
     match col with
-    | DoubleIdentifier (r, c) ->
+    | QualifiedIdentifier (r, c) ->
         { Column = c
           Value = value
           Operator = op
@@ -155,15 +160,15 @@ let pRestrictExpression =
     expression .>>. condition |>> RestrictExpression
 
 let pJoinExpression =
-    let expression1 =
+    let joinLeft =
         (str_ws "join") >>. (str_ws "(") >>. pExpression
         .>> (str_ws ")")
 
-    let expression2 = (str_ws "(") >>. pExpression .>> (str_ws ")")
+    let joinRight = (str_ws "(") >>. pExpression .>> (str_ws ")")
 
     let condition = (str_ws "(") >>. pCondition .>> (str_ws ")")
 
-    expression1 .>>. expression2 .>>. condition
+    joinLeft .>>. joinRight .>>. condition
     |>> JoinExpression
 
 

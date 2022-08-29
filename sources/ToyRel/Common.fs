@@ -60,12 +60,12 @@ and LogicalOperator =
 and ColumnList = ColumnList of Identifier list
 
 type ColOrVal =
-    | Column of DotColumn
+    | Column of Column
     | Value of Value
 
-and DotColumn =
+and Column =
     | SingleIdentifier of string
-    | DoubleIdentifier of string * string
+    | QualifiedIdentifier of string * string
 
 type Statement =
     | PrintStmt of Identifier
@@ -106,7 +106,7 @@ type ColumnValidity =
 
 and ValidColumn =
     | Decimal
-    | String   
+    | String
 
 type ConditionValidity =
     | ValidCondition
@@ -132,9 +132,11 @@ let combineValidity (v1: ConditionValidity) (v2: ConditionValidity) =
 
 let combineColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
     match (v1, v2) with
-    | (ValidColumn t1, ValidColumn t2) -> 
-        if t1 = t2 then ValidColumn t1
-        else TypesMismatch |> ColumnValidity.ConditionError
+    | (ValidColumn t1, ValidColumn t2) ->
+        if t1 = t2 then
+            ValidColumn t1
+        else
+            TypesMismatch |> ColumnValidity.ConditionError
     | (ValidColumn t1, ColumnValidity.ConditionError e) -> ColumnValidity.ConditionError e
     | (ColumnValidity.ConditionError e, ValidColumn t2) -> ColumnValidity.ConditionError e
     // When both conditions are invalid, only raise the first error.
@@ -148,4 +150,3 @@ let updateColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
     | (ColumnValidity.ConditionError e, ValidColumn t2) -> ValidColumn t2
     // When both columns are invalid, only raise the first error.
     | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> ColumnValidity.ConditionError e1
-
