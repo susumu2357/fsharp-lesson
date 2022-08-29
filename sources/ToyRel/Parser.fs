@@ -16,16 +16,15 @@ let pSBracketColumn =
     (pstring "[") >>. many1Satisfy notSBracket
     .>> (str_ws "]")
 
-let pDoubleIdentifier =
-    (((regex identifierRegex) .>> pstring "\.")
-     .>>. ((regex identifierRegex) <|> pSBracketColumn))
-    .>> ws
-
 let pColumn = pIdentifier <|> pSBracketColumn
 
+let pDoubleIdentifier =
+    ((regex identifierRegex) .>> pstring ".") .>>. pColumn
+
+
 let pDotColumn =
-    (pColumn |>> SingleIdentifier)
-    <|> (pDoubleIdentifier |>> DoubleIdentifier)
+    (attempt pDoubleIdentifier |>> DoubleIdentifier)
+    <|> (pColumn |>> SingleIdentifier)
 
 let pColumnList = sepBy pColumn (str_ws ",") |>> ColumnList
 
@@ -65,7 +64,7 @@ let pOperator =
 let pValue =
     let notQuotation = satisfy (fun c -> c <> '\"')
 
-    (pfloat .>> ws |>> Value.Float |>> ColOrVal.Value)
+    (pfloat .>> ws |>>  decimal |>> Value.Decimal |>> ColOrVal.Value)
     <|> (str_ws "\"" >>. (manyChars notQuotation)
          .>> str_ws "\""
          |>> Value.String

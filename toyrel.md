@@ -1100,7 +1100,7 @@ fsxで使う手頃なテストライブラリとかは自分は見つけられ�
 **REPL driven development**  
 
 REPLとはread-eval-print loopの略ですが、
-F#の文脈ではfsxを実行していう事を指す事になると思います。
+F#の文脈ではfsxを実行していく事を指す事になると思います。
 
 REPL driven developmentは正確な定義のある言葉では無いと思いますが、
 開発を主にfsx上で実行していきながら進めていくスタイルの事を言います。
@@ -1185,7 +1185,7 @@ Ctrl-NとPくらいはサポートしても良いかもしれません。（し�
 
 ### いろいろprojectを実行してみよう
 
-せっかく作ったので、いくつか試してみましょう。
+せっかく作ったので、いくつか試してみましょう。次の課題12をやってからでもいいです。
 
 - wikipediaデータベースのデータで、Employeeの名前の一覧を表示してみましょう。
 - [tandp.md](tandp.md)の図書館データベースについて、この図書館に所蔵されている本の著者の一覧を表示しましょう。
@@ -1250,8 +1250,7 @@ DifferenceExpression = Expression "difference" Expression
 
 differenceの仕様としては、Union Comparableじゃない時はエラーにしたい。
 
-Relational AlgebraでのUnion Comparableは普通順番は関係ないのですが、ToyRelとしては順番も同じじゃないと駄目としましょう。
-これは多くのSQLでもそうなっています。
+カラムの順番も同じでないとUnion Comparableではありません。
 
 型については次の「Deedleにおけるカラムの型」を参照ください。
 
@@ -1355,7 +1354,11 @@ fsharp-lessonとしては、解説はmutableな辞書も使っていきますが
 
 ### 課題13: differenceの実装をsetでやってエラーを確認
 
-とりあえずUnion comparableでない時はfailwithで落とす感じで実装して、この次の課題でエラー処理を追加する事にします。（課題14はフィードバックのやりとりが多い可能性があるので分けたい）
+まずはsetでdifferenceを実装してみて、コンパイルエラーが出て実行出来ない事を確認しましょう。
+
+（補足：解説を書いた時には実装出来ないと気づいていなかったけど、教育的に良いので残す事にした）
+
+とりあえずUnion comparableでない時はfailwithで落とす感じで実装してみます。
 
 まず以下が動くように実装します。
 
@@ -1364,13 +1367,12 @@ fsharp-lessonとしては、解説はmutableな辞書も使っていきますが
 > print r2
 ```
 
-setを使って実装してみると、rowはcomperableじゃない的なことを言われてエラーになると思うので、まずそのエラーを確認します。
-
-（補足：解説を書いた時には実装出来ないと気づいていなかったけど、教育的に良いので残す事にした）
+setを使って実装してみると、rowはcomparableじゃない的なことを言われてエラーになると思うので、まずそのエラーを確認します。
 
 ### 課題13.5: differenceの実装、エラー処理無し
 
 次にsetをHashSetに変えると実装出来ると思うので、HashSetで実装してみてください。
+この次の課題でエラー処理を追加する事にして、この時点ではfailwithで落としておいてください。（課題14はフィードバックのやりとりが多い可能性があるので分けたい）
 
 [HashSet Class (System.Collections.Generic) - Microsoft Docs](https://docs.microsoft.com/en-us/dotnet/api/system.collections.generic.hashset-1?view=net-6.0)
 
@@ -1379,7 +1381,7 @@ setを使って実装してみると、rowはcomperableじゃない的なこと�
 ### 課題14: エラー処理を実装する
 
 エラーメッセージを保持するべく、Union型で。中身は文字列だけでいいでしょう。
-Union Comperableじゃない場合、projectでカラム名が間違ってる場合など。
+Union Comparableじゃない場合、projectでカラム名が間違ってる場合など。
 
 少しここの型の設計は真面目に考えましょう。
 
@@ -1389,6 +1391,8 @@ Union Comperableじゃない場合、projectでカラム名が間違ってる場
 
 - [tandp.md](tandp.md)の図書館データベースで、図書館にまったく本が存在しないsubjectの一覧を取り出す
 - wikipediaデータベースでEmployeeの居ない部署を取り出す
+- wikipediaデータベースで`(project (Employee) DeptName) difference (project (Dept) Manager)`を実行して、Union Comparableじゃない（カラムが違う）エラーが出ることを確認する
+- wikipediaデータベースで`(project (Employee) EmpId) difference (project (EmployeeTypeMismatch) EmpId)`を実行して、Union Comparableじゃない（型が違う）エラーが出ることを確認する
 
 他にもなにかやってみてください。（良さげなのを思いついたら、ここに追加するPRくれると嬉しい）
 
@@ -1425,31 +1429,37 @@ cond = cond_atom
 - `[学年]=[専門]` のようなカラム名同士や、 `[学年]=1`のようなカラム名と値の両方が許されます
 - 値はとりあえず整数と文字列は対応する（小数とかはやりたければどうぞ）。文字列は必ずダブルクオートで囲まれているとする
 
-###　　theta-comperableとはなにか
+### theta-comparableとはなにか
 
-reistrictの条件は、theta-comperableである必要があります。
-theta-comperableとは、カラム1とカラム2が、何らかの演算thetaに対して定義されていて、
+reistrictの条件は、theta-comparableである必要があります。
+theta-comparableとは、カラム1とカラム2が、システムで定められている中の任意の比較演算thetaに対して定義されていて、
 trueかfalseの値を取ること、というのが定義です。
+カラム1とカラム2に対する性質です。
 
 +とか-とかを一般化してthetaと言っている訳ですね。
 
 例えば`学年`のカラムは整数です。
 `専門`は文字列です。
 だからこの２つの大小比較は出来ない（イコールも出来ないとして良いです）。
-だからこれはtheta comperableでは無い。
+だから`学年`と`専門` はtheta comparableでは無い。
 
-また、`[専門] = 1`のように、文字列と数字の比較もtheta comperableでは無い（`[專門]="1"`のように右辺が文字列ならOKです）。
+オリジナルの定義ではカラムとカラムの間の性質ですが、だいたいはカラムと即値（`1`とか`"2"`とかの値）の間にも拡張している事が多いと思います。
 
-andやorは両方がboolでないといけない。片方が文字列や数字はNGとします。
+だから、`[専門]`と `1`のように、文字列のカラムと数字の比較もtheta comparableでは無いとしましょう（`[專門]`と`"1"`のようにダブルクオートで囲まれた文字列ならtheta-comparableです）。
 
-そしてrestrictの条件はtheta-comperableでなくてはいけなくて、
-theta-comperableじゃない場合はエラーとして処理したい。
+thetaは `=, <>, <` などです。
 
-union comperableの時と同様、それを表すエラーを作って返してください。
+そしてrestrictの条件はtheta-comparableでなくてはいけなくて、
+theta-comparableじゃない場合はエラーとして処理したい。
+
+union comparableの時と同様、それを表すエラーを作って返してください。
 
 ### 課題15: restrictを実装しよう
 
 ということでrestrictを実装してみてください。さらっと言ってますが、まぁまぁ難しいと思います。
+
+restrictの条件としては、theta-comparableなカラムとthetaによる条件の他に、and, or, notも追加しましょう。
+andやorは両方がboolでないといけない。片方が文字列や数字はNGとします。（これもtheta-comparableでは無い、というエラーでいいでしょう）
 
 ### restrictを動かしてみる
 
@@ -1459,20 +1469,35 @@ union comperableの時と同様、それを表すエラーを作って返して�
 ## theta-joinの実装
 
 joinはtheta-joinだけでいいでしょう。
-以下が動くように。
+以下のように、２つのrelationと、満たすべき制約を書いたjoinをtheta-joinといいます。
 
 ```
 > join (Employee) (Dept) (Employee.DeptName = Dept.DeptName)
 ```
 
+制約の所がtheta comparableなカラムに対するthetaの制約が書かれるのでtheta-joinと呼ばれるのだと思います。
+
+論理的にはEmployeeとDeptのproductを作り、それにrestrictをしたかのように振る舞う。
+conditionは少し細かい仕様が必要になるでしょう。例えば以下のような感じでどうでしょうか？
+
 - conditionにrelationの名前が無い場合は左のrelation、右のrelationの順番に探して最初にマッチしたものとみなす（両方にあってもエラーにせず１つ目の名前と思って振る舞う）
 - relationが匿名の場合にはrelationの名前指定は出来ない
 
-とりあえず小手調べにproductを先に実装する。
+とりあえず小手調べにproductを実装する事から始めます。
 
-theta-joinはprodctしたテーブルに対するrestirctを実行していると考えられる。
+### 課題16: 以下の仕様のproductを実装
 
-### 課題16: productの仕様
+productは集合の積という奴で、デカルト積などと言われるものです。
+
+[直積集合 - Wikipedia](https://ja.wikipedia.org/wiki/%E7%9B%B4%E7%A9%8D%E9%9B%86%E5%90%88)
+
+rowの数がめちゃくちゃ膨れ上がるので実用上は使う事は無いですが、
+論理的にはtheta-joinはprodctしたテーブルに対するrestirctを実行していると考えられる。
+
+集合の積は慣れ親しんだ概念と思いますが、
+カラムの名前をどうするか、という所はちょっと真面目に考える必要がある。
+
+以下のようにしましょう。
 
 - ２つのリレーションの片方にしか無いカラム名はそのまま
 - 両方にあるカラム名は２つ目にリレーション名のprefixを.でつける
@@ -1489,10 +1514,11 @@ Name EmpId DeptName Dept.DeptName Manager
 
 ### 課題17: joinの実装
 
-productしたあとにrestrictするかのように動けば良いのだけれど、
+productが実装出来たら、theta-joinを実装しましょう。
+
+productしたあとにrestrictするかのように動けば良いのだけれど、、
 restrictのcondの指定でrelationの名前をつけてもつけなくても良い所は違いがある。
 そこだけ注意して実装。
-
 
 ### joinを動かしてみる
 
@@ -1511,9 +1537,9 @@ tandp p68のQuery 4.3.4よりあとから例を持ってくる。
 
 ## 細々としたものの対応
 
-- `@last`
 - union
 - intersect
+- `@last`
 
 この辺はやらなくてもいいけれどここまでやったらか一応。
 

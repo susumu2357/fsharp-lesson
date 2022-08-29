@@ -23,7 +23,7 @@ let getColsAndTypes: Frame<int, string> -> string list * Type list =
 /// <param name="df">The dataframe to be validated.</param>
 /// <param name="col">The column name. Should be a single string.</param>
 /// <returns>If the column of the dataframe is valid, returns ValidColumn.
-/// Float and Int columns are treated as valid Float column.
+/// Decimal and Int columns are treated as valid Decimal column.
 /// If the column is invalid, returns one of cases of ColumnValidity.ConditionError.
 /// For example, if the column name is not found in the dataframe, raise ColumnNotFound error.</returns>
 let validateColumn: Frame<int, string> -> string -> ColumnValidity =
@@ -34,7 +34,7 @@ let validateColumn: Frame<int, string> -> string -> ColumnValidity =
             let (_, t) = getColsAndTypes colDf
 
             match t.[0] with
-            | t when (t = typeof<float> || t = typeof<int32>) -> Float |> ValidColumn
+            | t when (t = typeof<decimal> || t = typeof<int32>) -> Decimal |> ValidColumn
             | t when t = typeof<string> -> String |> ValidColumn
             | _ ->
                 UnsupportedColumnType
@@ -114,17 +114,18 @@ let rec evalCondition: EvalCondition =
                              Column2 = col2
                              Operator = op } ->
                 fun row ->
-                    let testRow = row.TryGetAs<float>(col1)
-
-                    match testRow with
-                    | OptionalValue.Present _ -> evalOperator (row.GetAs<float>(col1)) (row.GetAs<float>(col2)) op
-                    | OptionalValue.Missing -> evalOperator (row.GetAs<string>(col1)) (row.GetAs<string>(col2)) op
+                    try 
+                        match row.TryGetAs<decimal>(col1) with
+                        | OptionalValue.Present _ -> evalOperator (row.GetAs<decimal>(col1)) (row.GetAs<decimal>(col2)) op
+                        | OptionalValue.Missing -> false
+                    with
+                        | :? System.FormatException -> evalOperator (row.GetAs<string>(col1)) (row.GetAs<string>(col2)) op
 
             | ColumnValue { Column = col
                             Value = value
                             Operator = op } ->
                 match value with
-                | Value.Float floatValue -> fun row -> evalOperator (row.GetAs<float>(col)) floatValue op
+                | Value.Decimal decimalValue -> fun row -> evalOperator (row.GetAs<decimal>(col)) decimalValue op
                 | Value.String stringValue -> fun row -> evalOperator (row.GetAs<string>(col)) stringValue op
 
 /// <summary>Validate Condition will be used in 'restrict'.
@@ -154,7 +155,7 @@ let rec validateCondition condition df =
             match (v1, v2) with
             | (ValidColumn c1, ValidColumn c2) ->
                 match (c1, c2) with
-                | (Float, Float) -> ValidCondition
+                | (Decimal, Decimal) -> ValidCondition
                 | (String, String) ->
                     match op with
                     | Equal -> ValidCondition
@@ -174,7 +175,7 @@ let rec validateCondition condition df =
             match v1 with
             | ValidColumn c1 ->
                 match (c1, value) with
-                | (Float, Value.Float _) -> ValidCondition
+                | (Decimal, Value.Decimal _) -> ValidCondition
                 | (String, Value.String _) ->
                     match op with
                     | Equal -> ValidCondition
@@ -263,45 +264,128 @@ let product rel1 rel2 prefix =
 
     expandedDf1.Join(expandedDf2) |> Relation.create
 
-let rec validateJoinCondition condition df1 df2 rel1Name rel2Name =
+let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
+    match (rel1Name, rel2Name) with
+    | Some name1, Some name2 -> 
+        match (rel1, rel2) with
+        | Some r1, Some r2 -> 
+            if (name1 = r1) && (name2 = r2) then 
+                combineColumnValidity (validateColumn df1 col1) (validateColumn df2 col2)
+            elif (name1 = r2) && (name2 = r1) then
+                combineColumnValidity (validateColumn df1 col2) (validateColumn df2 col1)
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | Some r1, None -> 
+            if name1 = r1 then
+                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+                combineColumnValidity (validateColumn df1 col1)  v2
+            elif name2 = r1 then
+                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+                combineColumnValidity (validateColumn df2 col1)  v2
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | None, Some r2-> 
+            if (name2 = r2) then
+                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+                combineColumnValidity v1 (validateColumn df2 col2)
+            elif (name1 = r2) then
+                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+                combineColumnValidity v1 (validateColumn df1 col2)
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | None, None -> 
+            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+            combineColumnValidity v1 v2
+
+    | Some name1, None -> 
+        match (rel1, rel2) with
+        | Some r1, Some r2 -> 
+            if (name1 = r1) && (name1 = r2) then 
+                combineColumnValidity (validateColumn df1 col1) (validateColumn df1 col2)
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | Some r1, None -> 
+            if (name1 = r1) then
+                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+                combineColumnValidity (validateColumn df1 col1)  v2
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | None, Some r2-> 
+            if (name1 = r2) then
+                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+                combineColumnValidity v1 (validateColumn df1 col2)
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | None, None ->
+            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+            combineColumnValidity v1 v2
+
+    | None, Some name2 -> 
+        match (rel1, rel2) with
+        | Some r1, Some r2 -> 
+            if (name2 = r1) && (name2 = r2) then 
+                combineColumnValidity (validateColumn df2 col1) (validateColumn df2 col2)
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | Some r1, None -> 
+            if (name2 = r1) then
+                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+                combineColumnValidity (validateColumn df2 col1)  v2
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | None, Some r2-> 
+            if (name2 = r2) then
+                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+                combineColumnValidity v1 (validateColumn df2 col2)
+            else IncorrectRelationName |> ColumnValidity.ConditionError
+        | None, None -> 
+            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+            combineColumnValidity v1 v2
+        
+    | None, None -> 
+        match (rel1, rel2) with
+        | Some r1, Some r2 -> RelationNameUnavailable |> ColumnValidity.ConditionError
+        | Some r1, None -> RelationNameUnavailable |> ColumnValidity.ConditionError
+        | None, Some r2-> RelationNameUnavailable |> ColumnValidity.ConditionError
+        | None, None ->
+            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
+            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
+            combineColumnValidity v1 v2
+
+let rec validateJoinCondition df1 df2 rel1Name rel2Name condition =
+    let joinValidator = validateJoinCondition df1 df2 rel1Name rel2Name
     match condition with
     | InfixCondition ((cond1, op), cond2) ->
         match op with
-        | And -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
-        | Or -> combineValidity (validateCondition cond1 df) (validateCondition cond2 df)
-    | NOTCondition cond -> validateCondition cond df
+        | And -> combineValidity (joinValidator cond1) (joinValidator cond2)
+        | Or -> combineValidity (joinValidator cond1) (joinValidator cond2)
+    | NOTCondition cond -> joinValidator cond
     | SingleCondition cond ->
         match cond with
         | ColumnColumn { Column1 = col1
                          Column2 = col2
-                         Operator = op } ->
-            let v1 = validateColumn df col1
-            let v2 = validateColumn df col2
+                         Operator = op 
+                         Relation1 = rel1
+                         Relation2 = rel2} ->
+            let validity = validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2
 
-            match (v1, v2) with
-            | (ValidColumn c1, ValidColumn c2) ->
-                match (c1, c2) with
-                | (Float, Float) -> ValidCondition
-                | (String, String) ->
+            match validity with
+            | ValidColumn c ->
+                match c with
+                | Decimal -> ValidCondition
+                | String ->
                     match op with
                     | Equal -> ValidCondition
                     | NotEqual -> ValidCondition
                     | _ -> IlldifinedOperatorForStrings |> ConditionError
-                | _ -> TypesMismatch |> ConditionError
-            | (ColumnValidity.ConditionError e, ValidColumn _) -> e |> ConditionError
-            | (ValidColumn _, ColumnValidity.ConditionError e) -> e |> ConditionError
-            | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> e1 |> ConditionError
+            | ColumnValidity.ConditionError e -> e |> ConditionError
 
         | ColumnValue { Column = col
                         Value = value
-                        Operator = op } ->
+                        Operator = op 
+                        Relation = rel } ->
 
-            let v1 = validateColumn df col
+            let validity = validateJoinColumns df1 df2 rel1Name rel2Name rel None col col
 
-            match v1 with
+            match validity with
             | ValidColumn c1 ->
                 match (c1, value) with
-                | (Float, Value.Float _) -> ValidCondition
+                | (Decimal, Value.Decimal _) -> ValidCondition
                 | (String, Value.String _) ->
                     match op with
                     | Equal -> ValidCondition
@@ -310,16 +394,150 @@ let rec validateJoinCondition condition df1 df2 rel1Name rel2Name =
                 | _ -> TypesMismatch |> ConditionError
             | ColumnValidity.ConditionError e -> e |> ConditionError
 
+let rec evalJoinCondition (rel1Name, rel2Name, cond) =
+    match cond with
+    | InfixCondition ((cond1, op), cond2) ->
+        match op with
+        | And ->
+            fun (row: Row) ->
+                (evalJoinCondition (rel1Name, rel2Name, cond1)) row
+                && (evalJoinCondition (rel1Name, rel2Name, cond2)) row
+        | Or ->
+            fun row ->
+                (evalJoinCondition (rel1Name, rel2Name, cond1)) row
+                || (evalJoinCondition (rel1Name, rel2Name, cond2)) row
+    | NOTCondition cond -> fun row -> not ((evalJoinCondition (rel1Name, rel2Name, cond)) row)
+    | SingleCondition cond ->
+        match cond with
+        | ColumnColumn { Column1 = col1
+                         Column2 = col2
+                         Operator = op 
+                         Relation1 = rel1
+                         Relation2 = rel2} ->
+            let renamedCol1 =
+                if col1 = col2 then
+                    match (rel1Name, rel2Name, rel1) with
+                    | Some _, Some name2, Some r1 ->
+                        if name2=r1 then name2 + "." + col1
+                        else col1
+                    | Some _, None, Some r1 -> col1
+                    | None, Some name2, Some r1 ->
+                        if name2=r1 then name2 + "." + col1
+                        else col1
+                    | _, _, _ -> col1
+                else col1
+
+            let renamedCol2 =
+                if col1 = col2 then
+                    match (rel1Name, rel2Name, rel2) with
+                    | Some _, Some name2, Some r2 ->
+                        if name2=r2 then name2 + "." + col2
+                        else col2
+                    | Some _, None, Some r2 -> col2
+                    | None, Some name2, Some r2 ->
+                        if name2=r2 then name2 + "." + col2
+                        else col2
+                    | _, _, _ -> col2
+                else col2
+
+            fun row ->
+                try 
+                    match row.TryGetAs<decimal>(renamedCol1) with
+                    | OptionalValue.Present _ -> evalOperator (row.GetAs<decimal>(renamedCol1)) (row.GetAs<decimal>(renamedCol2)) op
+                    | OptionalValue.Missing -> false
+                with
+                    | :? System.FormatException -> evalOperator (row.GetAs<string>(renamedCol1)) (row.GetAs<string>(renamedCol2)) op
+
+        | ColumnValue { Column = col
+                        Value = value
+                        Operator = op 
+                        Relation = rel} ->
+
+            let prefix =
+                match rel with
+                | Some r -> r + "."
+                | None -> ""
+
+            match value with
+            | Value.Decimal decimalValue -> 
+                fun row ->
+                    try 
+                        match row.TryGetAs<decimal>(col) with
+                        | OptionalValue.Present _ -> evalOperator (row.GetAs<decimal>(col)) decimalValue op
+                        | OptionalValue.Missing -> false
+                    with
+                        | :? System.FormatException -> evalOperator (row.GetAs<decimal>(prefix + col)) decimalValue op
+            | Value.String stringValue ->
+                fun row ->
+                    try 
+                        match row.TryGetAs<string>(col) with
+                        | OptionalValue.Present _ -> evalOperator (row.GetAs<string>(col)) stringValue op
+                        | OptionalValue.Missing -> false
+                    with
+                        | :? System.FormatException -> evalOperator (row.GetAs<string>(prefix + col)) stringValue op
+
+
+
+let joinRow df2 rel1Name rel2Name cond (row1: ObjectSeries<string>) =
+    let rowDf = Frame(row1.Keys, Seq.map (fun elm -> Series([0], [elm])) row1.Values)
+    let prodDf = 
+        match rel2Name with
+        | Some name2 ->
+            product (Relation.create rowDf) (Relation.create df2) name2
+        | None -> 
+            product (Relation.create rowDf) (Relation.create df2) "Right"
+    
+    let condition = evalJoinCondition (rel1Name, rel2Name, cond)
+
+    (Relation.value prodDf).RowsDense
+    |> Series.filterValues (condition)
+    |> Frame.ofRows
+    |> Frame.indexRowsOrdinally
+
+
+let concatFrames (frames: Frame<int, string> list) =
+    let N = Frame.countRows frames[0]
+    frames
+    |> List.mapi (fun i frame -> (Frame.mapRowKeys (fun num -> num + N*i) frame))
+    |> List.map (fun frame -> Frame.transpose frame)
+    |> Frame.mergeAll
+    |> Frame.transpose
+
+let dropDuplicateColumn rel2Name (frame: Frame<int, string>) =
+    match rel2Name with
+    | Some name2 -> 
+        let cols = frame.ColumnKeys |> Seq.toList
+        let duplicateNames = List.filter (fun elm -> List.contains (name2 + "." + elm) cols) cols
+        if List.length duplicateNames > 0 then
+            List.fold (fun s col -> 
+                if frame.GetColumn(col) = frame.GetColumn(name2 + "." + col) then
+                    Frame.dropCol (name2 + "." + col) s
+                else s
+                    ) frame duplicateNames
+        else frame
+    | None -> frame
 
 
 let join rel1 rel2 rel1Name rel2Name cond  =
     let df1 = Relation.value rel1
     let df2 = Relation.value rel2
 
-    let conditionValidity = validateJoinCondition cond df1 df2 rel1Name rel2Name
+    let conditionValidity = validateJoinCondition df1 df2 rel1Name rel2Name cond
 
-    let N1 = Frame.countRows df1
-    let N2 = Frame.countRows df2
+    match conditionValidity with
+    | ValidCondition _ ->
+        df1.Rows.Values
+        |> Seq.toList
+        |> List.map (joinRow df2 rel1Name rel2Name cond)
+        |> concatFrames
+        |> dropDuplicateColumn rel2Name
+        |> Relation.create
+        |> Result.Ok
+
+    | ConditionError err ->
+        err
+        |> Result.Error
+        |> Result.mapError ExecutionError.ConditionError
 
 
 let rec evalExpression: EvalExpression =
@@ -391,7 +609,7 @@ and evalJoinExpression exp1 exp2 cond =
     let rel2Name = tryGetRelName exp2
 
     match rel1, rel2 with
-    | Result.Ok rel1, Result.Ok rel2 -> join rel1 rel2 rel1Name rel2Name cond |> Result.Ok
+    | Result.Ok rel1, Result.Ok rel2 -> join rel1 rel2 rel1Name rel2Name cond
     | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
     | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
     // When both relations are illegal, only raise the first error.

@@ -12,7 +12,8 @@ open RadLine
 open System
 
 Environment.CurrentDirectory
-Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
+// Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
+Environment.CurrentDirectory <- @"C:\Users\susum\Documents\fsharp-lesson\sources\ToyRel"
 
 #load "Common.fs"
 open Common
@@ -132,3 +133,67 @@ eval "print test"
 
 eval "test = (Employee) product (project (EmployeeTypeMismatch) EmpId)"
 eval "print test"
+
+// Test the join
+// Wikipediaの例
+// Natural joinの所の例にあるEmployeeとDeptのjoin結果となるようなtheta-joinを書いてみよう
+eval "use wikipedia"
+eval "natural_join = join (Employee) (Dept) (Employee.DeptName = Dept.DeptName)"
+eval "print natural_join"
+
+// CarとBoatの例を動かせ
+eval "car_boat = join (Car) (Boat) (CarPrice >= BoatPrice)"
+eval "print car_boat"
+
+// tandpの例
+// 4.3.1 商品を提供している全producerを調べよ
+eval "use glossary"
+eval "goods_producers = project (goods) producer"
+eval "print goods_producers"
+
+// 4.3.2 支社に配送している全producerを調べよ
+eval "branch_producers = project (delivery) producer"
+eval "print branch_producers"
+
+// 4.3.3 L1支社に配送されてまだin stockな状態の全商品の、sell_priceとcost_priceを以下の２つの方法で調べよ
+// P1にL1支社でin stockなrowの一覧を入れ、次にP1からsell_price, cost_priceを取り出して表示する、という２つのクエリに分けるやり方
+eval "P1 = restrict (stock) ((branch = \"L1\") and (date_out = \"INSTOCK\"))"
+eval "solution1 = project (P1) sell_price, cost_price"
+eval "print solution1"
+
+//上と同じものをかっこを使ってネストして一文にしたやり方
+eval "solution2 = project (restrict (stock) ((branch = \"L1\") and (date_out = \"INSTOCK\"))) sell_price, cost_price"
+eval "print solution2"
+
+// 4.3.4 以下の条件を満たすproducer, product_code, descriptionを表示せよ：
+// 全てのブランチで、届いた日と同じ日に売れたもの。（以下ヒントを書くので、自分で好きに書いたあとにヒントの通りにも書いてみて下さい）
+// まずは自分で好きに書いてみる。
+eval "tmp1 = join (restrict (stock) (date_in = date_out)) (delivery) ((branch = delivery.branch) and (stock = delivery.stock))"
+eval "my_solution = project (join (tmp1) (goods) (tmp1.product_code = goods.product_code)) producer, product_code, description"
+eval "print my_solution"
+
+// r1にstockのうちdate_inとdate_outが等しいものだけを入れる
+eval "r1 = restrict (stock) (date_in = date_out)"
+
+// r2でr1とdeliveryを、ブランチとストックが同じようにjoin
+eval "r2 = join (r1) (delivery) ((r1.branch = delivery.branch) and (r1.stock = delivery.stock))"
+
+// r3にr2とgoodsをjoin
+eval "r3 = join (r2) (goods) (r2.product_code = goods.product_code)"
+
+// r4でr3をproject
+eval "r4 = project (r3) producer, product_code, description"
+eval "print r4"
+
+// このやり方は最後にprojetをやっているので効率が悪い。もっと早くprojectを行うようにクエリを直すとどうなるか？
+eval "r1 = project (restrict (project (stock) branch, stock, date_in, date_out) (date_in = date_out)) branch, stock"
+eval "r2 = project (join (r1) (delivery) ((r1.branch = delivery.branch) and (r1.stock = delivery.stock))) product_code"
+eval "r3 = join (r2) (goods) (r2.product_code = goods.product_code)"
+eval "print r3"
+
+// 4.3.5 以下の条件を満たすbranch, size, colour, sell_priceの一覧を表示せよ：
+// まだ売れてないdress全て
+eval "r1 = project (restrict (project (stock) branch, stock, size, colour, sell_price, date_out) (date_out = \"INSTOCK\")) branch, stock, size, colour, sell_price"
+eval "r2 = project (join (r1) (delivery) ((r1.branch = delivery.branch) and (r1.stock = delivery.stock))) product_code, branch, size, colour, sell_price"
+eval "r3 = project (join (restrict (goods) (description = \"DRESS\")) (r2) (product_code = r2.product_code)) branch, size, colour, sell_price"
+eval "print r3"
