@@ -293,8 +293,15 @@ let product rel1 rel2 prefix =
 /// If the column is invalid, returns one of cases of ColumnValidity.ConditionError.
 /// For example, if the column name is not found in the dataframe, raise ColumnNotFound error.</returns>
 let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
-    match (rel1Name, rel2Name) with
-    | Some name1, Some name2 ->
+
+    // If qualifiers r1, r2 appeared in the condition, it should match with one of the relation names.
+    // Otherwise raise the IncorrectRelationName error.
+    // If the qualifier matches with one of the relation names,
+    // test the validity of the corresponding column.
+    // For example, if name1 = r1, the column col1 should be found in the df1.
+    // And if r2 is None, the col2 could be either in the df1 and the df2, in this case "updateColumnValidity"
+    // is used to combine Column Validity in the additive way.
+    let relationNamesCase name1 name2 =
         match (rel1, rel2) with
         | Some r1, Some r2 ->
             if (name1 = r1) && (name2 = r2) then
@@ -329,7 +336,11 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
             let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
             combineColumnValidity v1 v2
 
-    | Some name1, None ->
+    // If the qualifier matches with the name1,
+    // test the validity of the corresponding column.
+    // Because there is no name2 in this case,
+    // there is no possibility to use the name of the relation on the right hand side of "join".
+    let leftRelationNameCase name1 =
         match (rel1, rel2) with
         | Some r1, Some r2 ->
             if (name1 = r1) && (name1 = r2) then
@@ -356,7 +367,11 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
             let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
             combineColumnValidity v1 v2
 
-    | None, Some name2 ->
+    // If the qualifier matches with the name2,
+    // test the validity of the corresponding column.
+    // Because there is no name1 in this case,
+    // there is no possibility to use the name of the relation on the left hand side of "join".
+    let rightRelationNameCase name2 =
         match (rel1, rel2) with
         | Some r1, Some r2 ->
             if (name2 = r1) && (name2 = r2) then
@@ -383,7 +398,9 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
             let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
             combineColumnValidity v1 v2
 
-    | None, None ->
+    // Because there are no name1 and name2 in this case,
+    // Some r1 and/or Some r2 raise RelationNameUnavailable error.
+    let noRelationNamesCase =
         match (rel1, rel2) with
         | Some r1, Some r2 ->
             RelationNameUnavailable
@@ -398,6 +415,13 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
             let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
             let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
             combineColumnValidity v1 v2
+
+
+    match (rel1Name, rel2Name) with
+    | Some name1, Some name2 -> relationNamesCase name1 name2
+    | Some name1, None -> leftRelationNameCase name1
+    | None, Some name2 -> rightRelationNameCase name2
+    | None, None -> noRelationNamesCase
 
 /// <summary>Validate Condition will be used in 'join'.
 /// AND and OR conditions are recursively evaluated.</summary>
@@ -705,6 +729,12 @@ let listing path =
 
 let printRelationName rel = printfn "Relation %s returned." rel
 
+let saveAndPrint rel =
+    rel
+    |> Result.map Relation.save
+    |> Result.map printRelationName
+
+
 let evalAdapted paserResult =
     match paserResult with
     | PrintStmt printStmt -> evalPrintStmt printStmt
@@ -721,40 +751,17 @@ let evalAdapted paserResult =
     | Expression exp ->
         match exp with
         | ProjectExpression projectExpression ->
-            let rel = evalProjectExpression projectExpression
-
-            rel
-            |> Result.map Relation.save
-            |> Result.map printRelationName
+            evalProjectExpression projectExpression
+            |> saveAndPrint
 
         | InfixExpression ((exp1, op), exp2) ->
             match op with
-            | Difference ->
-                let rel = evalDifferenceExpression exp1 exp2
+            | Difference -> evalDifferenceExpression exp1 exp2 |> saveAndPrint
+            | Product -> evalProductExpression exp1 exp2 |> saveAndPrint
 
-                rel
-                |> Result.map Relation.save
-                |> Result.map printRelationName
-            | Product ->
-                let rel = evalProductExpression exp1 exp2
+        | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond |> saveAndPrint
 
-                rel
-                |> Result.map Relation.save
-                |> Result.map printRelationName
-
-        | RestrictExpression (exp, cond) ->
-            let rel = evalRestrictExpression exp cond
-
-            rel
-            |> Result.map Relation.save
-            |> Result.map printRelationName
-
-        | JoinExpression ((exp1, exp2), cond) ->
-            let rel = evalJoinExpression exp1 exp2 cond
-
-            rel
-            |> Result.map Relation.save
-            |> Result.map printRelationName
+        | JoinExpression ((exp1, exp2), cond) -> evalJoinExpression exp1 exp2 cond |> saveAndPrint
 
         | Identifier identifier ->
             printfn "Only relation name is provided."

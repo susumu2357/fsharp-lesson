@@ -31,6 +31,10 @@ let paserResultAdapted str =
 /// <para><c>([Expression]) difference ([Expression])</c>: subtract columns appeared in the right expression from the left expression.
 /// The returned relation name convention is the same as the <c>project</c>.</para>
 /// <para>Example: <c>(project (Dept) DeptName) difference (project (Empl) DeptName)</c></para>
+/// <para><c>join ([Expression]) ([Expression]) ([Condition])</c>: join two relations on the condition.
+/// When the expression is the relation name, the name can be used as a qualifier of the column.
+/// The returned relation name convention is the same as the <c>project</c>.</para>
+/// <para>Example: <c>join (Employee) (dept) (Employee.DeptName = Dept.DeptName)</c></para>
 /// </remarks>
 /// <param name="str">The input ToyRel statement. The double quote should be escaped.</param>
 /// <returns>If the evaluation succeeds, the evaluated result will be printed out to the terminal.
