@@ -130,7 +130,7 @@ let combineValidity (v1: ConditionValidity) (v2: ConditionValidity) =
     // When both conditions are invalid, only raise the first error.
     | (ConditionError e1, ConditionError e2) -> ConditionError e1
 
-let combineColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
+let combineANDColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
     match (v1, v2) with
     | (ValidColumn t1, ValidColumn t2) ->
         if t1 = t2 then
@@ -142,7 +142,7 @@ let combineColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
     // When both conditions are invalid, only raise the first error.
     | (ColumnValidity.ConditionError e1, ColumnValidity.ConditionError e2) -> ColumnValidity.ConditionError e1
 
-let updateColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
+let combineORColumnValidity (v1: ColumnValidity) (v2: ColumnValidity) =
     match (v1, v2) with
     // When both columns are valid, pass the first column.
     | (ValidColumn t1, ValidColumn t2) -> ValidColumn t1

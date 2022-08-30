@@ -295,6 +295,11 @@ let product rel1 rel2 prefix =
 /// For example, if the column name is not found in the dataframe, raise ColumnNotFound error.</returns>
 let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
 
+    // If the qualifier rel matches with one of the relation names (name1, name2),
+    // validate the column with the matched relation df1 or df2.
+    // If the qualifier does not match with the relation names,
+    // raise IncorrectRelationName error.
+    // If the qualifier is None, validate the column with both relations.
     let testNames name1 name2 rel col =
         if rel |> Option.contains name1 then
             validateColumn df1 col
@@ -304,14 +309,14 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
             IncorrectRelationName
             |> ColumnValidity.ConditionError
         else
-            updateColumnValidity (validateColumn df1 col) (validateColumn df2 col)
+            combineORColumnValidity (validateColumn df1 col) (validateColumn df2 col)
 
     let testNoName rel col =
         if rel |> Option.isSome then
             RelationNameUnavailable
             |> ColumnValidity.ConditionError
         else
-            updateColumnValidity (validateColumn df1 col) (validateColumn df2 col)
+            combineORColumnValidity (validateColumn df1 col) (validateColumn df2 col)
 
     // Qualifiers rel1, rel2 could match with either name1 or name2.
     // Validate the column name corresponding to the qualifier.
@@ -319,19 +324,19 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
         let v1 = testNames name1 name2 rel1 col1
         let v2 = testNames name1 name2 rel2 col2
 
-        combineColumnValidity v1 v2
+        combineANDColumnValidity v1 v2
 
     let leftRelationNameCase name1 =
         let v1 = testNames name1 "" rel1 col1
         let v2 = testNames name1 "" rel2 col2
 
-        combineColumnValidity v1 v2
+        combineANDColumnValidity v1 v2
 
     let rightRelationNameCase name2 =
         let v1 = testNames "" name2 rel1 col1
         let v2 = testNames "" name2 rel2 col2
 
-        combineColumnValidity v1 v2
+        combineANDColumnValidity v1 v2
 
     // Because there are no name1 and name2 in this case,
     // Some r1 and/or Some r2 raise RelationNameUnavailable error.
@@ -339,7 +344,7 @@ let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
         let v1 = testNoName rel1 col1
         let v2 = testNoName rel2 col2
 
-        combineColumnValidity v1 v2
+        combineANDColumnValidity v1 v2
 
 
     match (rel1Name, rel2Name) with
