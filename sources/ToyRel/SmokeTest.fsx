@@ -12,8 +12,8 @@ open RadLine
 open System
 
 Environment.CurrentDirectory
-// Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
-Environment.CurrentDirectory <- @"C:\Users\susum\Documents\fsharp-lesson\sources\ToyRel"
+Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyRel"
+// Environment.CurrentDirectory <- @"C:\Users\susum\Documents\fsharp-lesson\sources\ToyRel"
 
 #load "Common.fs"
 open Common
@@ -168,8 +168,12 @@ eval "print solution2"
 // 4.3.4 以下の条件を満たすproducer, product_code, descriptionを表示せよ：
 // 全てのブランチで、届いた日と同じ日に売れたもの。（以下ヒントを書くので、自分で好きに書いたあとにヒントの通りにも書いてみて下さい）
 // まずは自分で好きに書いてみる。
-eval "tmp1 = join (restrict (stock) (date_in = date_out)) (delivery) ((branch = delivery.branch) and (stock = delivery.stock))"
-eval "my_solution = project (join (tmp1) (goods) (tmp1.product_code = goods.product_code)) producer, product_code, description"
+eval
+    "tmp1 = join (restrict (stock) (date_in = date_out)) (delivery) ((branch = delivery.branch) and (stock = delivery.stock))"
+
+eval
+    "my_solution = project (join (tmp1) (goods) (tmp1.product_code = goods.product_code)) producer, product_code, description"
+
 eval "print my_solution"
 
 // r1にstockのうちdate_inとdate_outが等しいものだけを入れる
@@ -193,7 +197,13 @@ eval "print r3"
 
 // 4.3.5 以下の条件を満たすbranch, size, colour, sell_priceの一覧を表示せよ：
 // まだ売れてないdress全て
-eval "r1 = project (restrict (project (stock) branch, stock, size, colour, sell_price, date_out) (date_out = \"INSTOCK\")) branch, stock, size, colour, sell_price"
-eval "r2 = project (join (r1) (delivery) ((r1.branch = delivery.branch) and (r1.stock = delivery.stock))) product_code, branch, size, colour, sell_price"
-eval "r3 = project (join (restrict (goods) (description = \"DRESS\")) (r2) (product_code = r2.product_code)) branch, size, colour, sell_price"
+eval
+    "r1 = project (restrict (project (stock) branch, stock, size, colour, sell_price, date_out) (date_out = \"INSTOCK\")) branch, stock, size, colour, sell_price"
+
+eval
+    "r2 = project (join (r1) (delivery) ((r1.branch = delivery.branch) and (r1.stock = delivery.stock))) product_code, branch, size, colour, sell_price"
+
+eval
+    "r3 = project (join (restrict (goods) (description = \"DRESS\")) (r2) (product_code = r2.product_code)) branch, size, colour, sell_price"
+
 eval "print r3"
