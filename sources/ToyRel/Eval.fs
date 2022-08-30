@@ -13,6 +13,7 @@ type Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityEr
 type Row = ObjectSeries<string>
 type EvalCondition = Condition -> (Row -> bool)
 
+
 let getColsAndTypes: Frame<int, string> -> string list * Type list =
     fun df ->
         let cols = df.ColumnKeys |> Seq.toList
@@ -294,127 +295,51 @@ let product rel1 rel2 prefix =
 /// For example, if the column name is not found in the dataframe, raise ColumnNotFound error.</returns>
 let validateJoinColumns df1 df2 rel1Name rel2Name rel1 rel2 col1 col2 =
 
-    // If qualifiers r1, r2 appeared in the condition, it should match with one of the relation names.
-    // Otherwise raise the IncorrectRelationName error.
-    // If the qualifier matches with one of the relation names,
-    // test the validity of the corresponding column.
-    // For example, if name1 = r1, the column col1 should be found in the df1.
-    // And if r2 is None, the col2 could be either in the df1 and the df2, in this case "updateColumnValidity"
-    // is used to combine Column Validity in the additive way.
+    let testNames name1 name2 rel col =
+        if rel |> Option.contains name1 then
+            validateColumn df1 col
+        elif rel |> Option.contains name2 then
+            validateColumn df2 col
+        elif rel |> Option.isSome then
+            IncorrectRelationName
+            |> ColumnValidity.ConditionError
+        else
+            updateColumnValidity (validateColumn df1 col) (validateColumn df2 col)
+
+    let testNoName rel col =
+        if rel |> Option.isSome then
+            RelationNameUnavailable
+            |> ColumnValidity.ConditionError
+        else
+            updateColumnValidity (validateColumn df1 col) (validateColumn df2 col)
+
+    // Qualifiers rel1, rel2 could match with either name1 or name2.
+    // Validate the column name corresponding to the qualifier.
     let relationNamesCase name1 name2 =
-        match (rel1, rel2) with
-        | Some r1, Some r2 ->
-            if (name1 = r1) && (name2 = r2) then
-                combineColumnValidity (validateColumn df1 col1) (validateColumn df2 col2)
-            elif (name1 = r2) && (name2 = r1) then
-                combineColumnValidity (validateColumn df1 col2) (validateColumn df2 col1)
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | Some r1, None ->
-            if name1 = r1 then
-                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-                combineColumnValidity (validateColumn df1 col1) v2
-            elif name2 = r1 then
-                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-                combineColumnValidity (validateColumn df2 col1) v2
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | None, Some r2 ->
-            if (name2 = r2) then
-                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-                combineColumnValidity v1 (validateColumn df2 col2)
-            elif (name1 = r2) then
-                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-                combineColumnValidity v1 (validateColumn df1 col2)
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | None, None ->
-            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-            combineColumnValidity v1 v2
+        let v1 = testNames name1 name2 rel1 col1
+        let v2 = testNames name1 name2 rel2 col2
 
-    // If the qualifier matches with the name1,
-    // test the validity of the corresponding column.
-    // Because there is no name2 in this case,
-    // there is no possibility to use the name of the relation on the right hand side of "join".
+        combineColumnValidity v1 v2
+
     let leftRelationNameCase name1 =
-        match (rel1, rel2) with
-        | Some r1, Some r2 ->
-            if (name1 = r1) && (name1 = r2) then
-                combineColumnValidity (validateColumn df1 col1) (validateColumn df1 col2)
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | Some r1, None ->
-            if (name1 = r1) then
-                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-                combineColumnValidity (validateColumn df1 col1) v2
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | None, Some r2 ->
-            if (name1 = r2) then
-                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-                combineColumnValidity v1 (validateColumn df1 col2)
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | None, None ->
-            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-            combineColumnValidity v1 v2
+        let v1 = testNames name1 "" rel1 col1
+        let v2 = testNames name1 "" rel2 col2
 
-    // If the qualifier matches with the name2,
-    // test the validity of the corresponding column.
-    // Because there is no name1 in this case,
-    // there is no possibility to use the name of the relation on the left hand side of "join".
+        combineColumnValidity v1 v2
+
     let rightRelationNameCase name2 =
-        match (rel1, rel2) with
-        | Some r1, Some r2 ->
-            if (name2 = r1) && (name2 = r2) then
-                combineColumnValidity (validateColumn df2 col1) (validateColumn df2 col2)
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | Some r1, None ->
-            if (name2 = r1) then
-                let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-                combineColumnValidity (validateColumn df2 col1) v2
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | None, Some r2 ->
-            if (name2 = r2) then
-                let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-                combineColumnValidity v1 (validateColumn df2 col2)
-            else
-                IncorrectRelationName
-                |> ColumnValidity.ConditionError
-        | None, None ->
-            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-            combineColumnValidity v1 v2
+        let v1 = testNames "" name2 rel1 col1
+        let v2 = testNames "" name2 rel2 col2
+
+        combineColumnValidity v1 v2
 
     // Because there are no name1 and name2 in this case,
     // Some r1 and/or Some r2 raise RelationNameUnavailable error.
     let noRelationNamesCase =
-        match (rel1, rel2) with
-        | Some r1, Some r2 ->
-            RelationNameUnavailable
-            |> ColumnValidity.ConditionError
-        | Some r1, None ->
-            RelationNameUnavailable
-            |> ColumnValidity.ConditionError
-        | None, Some r2 ->
-            RelationNameUnavailable
-            |> ColumnValidity.ConditionError
-        | None, None ->
-            let v1 = updateColumnValidity (validateColumn df1 col1) (validateColumn df2 col1)
-            let v2 = updateColumnValidity (validateColumn df1 col2) (validateColumn df2 col2)
-            combineColumnValidity v1 v2
+        let v1 = testNoName rel1 col1
+        let v2 = testNoName rel2 col2
+
+        combineColumnValidity v1 v2
 
 
     match (rel1Name, rel2Name) with
