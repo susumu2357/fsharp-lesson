@@ -86,12 +86,12 @@ type ExecutionError =
     | IncorrectPathError
     | EmptyCSVError
     | ColumnError of ColumnError
-    | ComparabilityError of ComparabilityError
+    | CompatibilityError of CompatibilityError
     | ConditionError of ConditionError
 
 and ColumnError = ColumnNotFound
 
-and ComparabilityError =
+and CompatibilityError =
     | ColumnsMismatch
     | ColumnTypesMismatch
     | ColumnsOrderMismatch
@@ -116,9 +116,9 @@ type ConditionValidity =
     | ValidCondition
     | ConditionError of ConditionError
 
-type Comparability =
-    | Comparable
-    | ComparabilityError of ComparabilityError
+type Compatibility =
+    | Compatible
+    | CompatibilityError of CompatibilityError
 
 type EvaluationError =
     | ParseError of ParseError
