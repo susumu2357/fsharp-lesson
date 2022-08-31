@@ -52,6 +52,7 @@ module Relation =
     let saveAs basename rel =
         let df = value rel
         df.SaveCsv(path = databaseBase + dbPath + basename + ".csv", includeRowKeys = false)
+        latestRelationName <- basename
 
     let save rel =
         let rndName = randName ()

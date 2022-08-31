@@ -3,6 +3,7 @@ module Common
 // let databasePath = ".\\sources\\ToyRel\\database\\master\\"
 let databaseBase = ".\\database\\"
 let mutable dbPath = "master\\"
+let mutable latestRelationName = ""
 
 type Value =
     | Decimal of decimal

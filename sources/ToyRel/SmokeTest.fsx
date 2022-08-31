@@ -224,5 +224,17 @@ eval "employees_dept = (project (Dept) DeptName) union (project (Employee) DeptN
 eval "print employees_dept"
 
 // Test the intersection
-eval "intersect_employees_dept = (project (Dept) DeptName) intersection (project (Employee) DeptName)"
+eval "intersect_employees_dept = (project (Dept) DeptName) intersect (project (Employee) DeptName)"
 eval "print intersect_employees_dept"
+
+// Test the @last notation
+eval "use wikipedia"
+eval "project (Employee) Name, DeptName"
+eval "print @last"
+eval "project ( @last ) DeptName"
+eval "print @last"
+eval "(@last) intersect (project (Dept) DeptName)"
+eval "print @last"
+eval "atLast = join (@last) (Dept) (DeptName = Dept.DeptName)"
+eval "print @last"
+eval "print atLast"

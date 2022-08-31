@@ -9,7 +9,6 @@ open Relation
 type EvalExpression = Expression -> Result<Relation.T, ExecutionError>
 type EvalProjectExpression = ProjectExpression -> Result<Relation.T, ExecutionError>
 type EvalDifferenceExpression = Expression -> Expression -> Result<Relation.T, ExecutionError>
-// type Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityError>
 type Row = ObjectSeries<string>
 type EvalCondition = Condition -> (Row -> bool)
 

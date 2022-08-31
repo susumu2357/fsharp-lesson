@@ -22,6 +22,10 @@ let pQualifiedIdentifier =
     ((regex identifierRegex) .>> pstring ".")
     .>>. pColumn
 
+let pAtLast =
+    pchar '@' >>. pstring "last" .>> ws
+    |>> (fun s -> latestRelationName)
+
 
 let pDotColumn =
     (attempt pQualifiedIdentifier
@@ -42,7 +46,9 @@ let pProjectExpression =
 
     expression .>>. pColumnList |>> ProjectExpression
 
-let pIdentifierExpression = pIdentifier |>> Expression.Identifier
+let pIdentifierExpression =
+    (pAtLast <|> pIdentifier)
+    |>> Expression.Identifier
 
 
 let pInfixExpression =
@@ -198,7 +204,7 @@ let pJoinStmt = pJoinExpression |>> Expression
 let pRenameStmt = pRenameExpression |>> Expression
 
 let pPrintStmt =
-    let stmt = (str_ws "print") >>. pIdentifier
+    let stmt = (str_ws "print") >>. (pAtLast <|> pIdentifier)
 
     stmt |>> PrintStmt
 
