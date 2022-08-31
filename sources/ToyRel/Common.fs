@@ -53,6 +53,8 @@ and Operator =
 and InfixOperator =
     | Difference
     | Product
+    | Union
+    | Intersection
 
 and LogicalOperator =
     | And

@@ -9,7 +9,7 @@ open Relation
 type EvalExpression = Expression -> Result<Relation.T, ExecutionError>
 type EvalProjectExpression = ProjectExpression -> Result<Relation.T, ExecutionError>
 type EvalDifferenceExpression = Expression -> Expression -> Result<Relation.T, ExecutionError>
-type Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityError>
+// type Difference = Relation.T -> Relation.T -> Result<Relation.T, ComparabilityError>
 type Row = ObjectSeries<string>
 type EvalCondition = Condition -> (Row -> bool)
 
@@ -66,21 +66,46 @@ let validateComparability df1 df2 =
         else
             ColumnsMismatch |> ComparabilityError
 
-let difference: Difference =
-    fun rel1 rel2 ->
-        let df1 = Relation.value rel1
-        let df2 = Relation.value rel2
+let infixOperation rel1 rel2 computeRelation =
+    let df1 = Relation.value rel1
+    let df2 = Relation.value rel2
 
-        match validateComparability df1 df2 with
-        | Comparable _ ->
-            let reference = df2.Rows.Values |> Collections.Generic.HashSet
+    match validateComparability df1 df2 with
+    | Comparable _ -> computeRelation df1 df2 |> Result.Ok
+    | ComparabilityError err ->
+        ExecutionError.ComparabilityError err
+        |> Result.Error
 
-            df1.RowsDense
-            |> Series.filterValues (fun row -> not (reference.Contains row))
-            |> Frame.ofRows
-            |> Relation.create
-            |> Result.Ok
-        | ComparabilityError err -> err |> Result.Error
+let difference rel1 rel2 =
+    let computeRelation (df1: Frame<int, string>) (df2: Frame<int, string>) =
+        let reference = df2.Rows.Values |> Collections.Generic.HashSet
+
+        df1.RowsDense
+        |> Series.filterValues (fun row -> not (reference.Contains row))
+        |> Frame.ofRows
+        |> Relation.create
+
+    infixOperation rel1 rel2 computeRelation
+
+let union rel1 rel2 =
+    let computeRelation (df1: Frame<int, string>) (df2: Frame<int, string>) =
+        Seq.append df1.RowsDense.Values df2.RowsDense.Values
+        |> Series.ofValues
+        |> Frame.ofRows
+        |> Relation.create
+
+    infixOperation rel1 rel2 computeRelation
+
+let intersection rel1 rel2 =
+    let computeRelation (df1: Frame<int, string>) (df2: Frame<int, string>) =
+        let reference = df2.Rows.Values |> Collections.Generic.HashSet
+
+        df1.RowsDense
+        |> Series.filterValues (fun row -> reference.Contains row)
+        |> Frame.ofRows
+        |> Relation.create
+
+    infixOperation rel1 rel2 computeRelation
 
 let evalOperator a b op =
     match op with
@@ -153,6 +178,14 @@ let rec validationCatamorphism fColumnColumn fColumnValue input condition =
                         Relation = rel } ->
 
             fColumnValue col value op rel input
+
+let evalCatamorphism rel1 rel2 resultf =
+    match rel1, rel2 with
+    | Result.Ok rel1, Result.Ok rel2 -> resultf rel1 rel2
+    | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
+    | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
+    // When both relations are illegal, only raise the first error.
+    | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
 
 /// <summary>Validate Condition will be used in 'restrict'.
 /// AND and OR conditions are recursively evaluated.</summary>
@@ -572,6 +605,8 @@ let rec evalExpression: EvalExpression =
             match op with
             | Difference -> evalDifferenceExpression exp1 exp2
             | Product -> evalProductExpression exp1 exp2
+            | Union -> evalUnionExpression exp1 exp2
+            | Intersection -> evalIntersectionExpression exp1 exp2
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond
         | JoinExpression ((exp1, exp2), cond) -> evalJoinExpression exp1 exp2 cond
         | RenameExpression ((qualifier, col), newCol) -> evalRenameExpression qualifier col newCol
@@ -598,14 +633,19 @@ and evalDifferenceExpression: EvalDifferenceExpression =
         let rel1 = evalExpression exp1
         let rel2 = evalExpression exp2
 
-        match rel1, rel2 with
-        | Result.Ok rel1, Result.Ok rel2 ->
-            difference rel1 rel2
-            |> Result.mapError ExecutionError.ComparabilityError
-        | Result.Ok rel1, Result.Error err2 -> err2 |> Result.Error
-        | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
-        // When both relations are illegal, only raise the first error.
-        | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
+        evalCatamorphism rel1 rel2 difference
+
+and evalUnionExpression exp1 exp2 =
+    let rel1 = evalExpression exp1
+    let rel2 = evalExpression exp2
+
+    evalCatamorphism rel1 rel2 union
+
+and evalIntersectionExpression exp1 exp2 =
+    let rel1 = evalExpression exp1
+    let rel2 = evalExpression exp2
+
+    evalCatamorphism rel1 rel2 intersection
 
 and evalRestrictExpression exp cond =
     let rel = evalExpression exp
@@ -702,6 +742,10 @@ let evalAdapted paserResult =
             match op with
             | Difference -> evalDifferenceExpression exp1 exp2 |> saveAndPrint
             | Product -> evalProductExpression exp1 exp2 |> saveAndPrint
+            | Union -> evalUnionExpression exp1 exp2 |> saveAndPrint
+            | Intersection ->
+                evalIntersectionExpression exp1 exp2
+                |> saveAndPrint
 
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond |> saveAndPrint
 

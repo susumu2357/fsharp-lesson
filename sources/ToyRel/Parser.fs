@@ -51,7 +51,9 @@ let pInfixExpression =
 
     (expression1
      .>>. ((str_ws ("difference") >>% Difference)
-           <|> (str_ws ("product") >>% Product)))
+           <|> (str_ws ("product") >>% Product)
+           <|> (str_ws ("union") >>% Union)
+           <|> (str_ws ("intersect") >>% Intersection)))
     .>>. expression2
     |>> InfixExpression
 

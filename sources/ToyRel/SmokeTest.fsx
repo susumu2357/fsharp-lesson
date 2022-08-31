@@ -217,3 +217,12 @@ eval "print renamingTest"
 
 // ColumnNotFound
 eval "rename (Dept.Name) renamed"
+
+// Test the union
+eval "use wikipedia"
+eval "employees_dept = (project (Dept) DeptName) union (project (Employee) DeptName)"
+eval "print employees_dept"
+
+// Test the intersection
+eval "intersect_employees_dept = (project (Dept) DeptName) intersection (project (Employee) DeptName)"
+eval "print intersect_employees_dept"
