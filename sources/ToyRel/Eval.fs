@@ -225,7 +225,7 @@ let restriction rel cond =
 /// <param name="columnNames">The string list of column names parsed from 'project' Expression.</param>
 /// <returns>If the columnNames exsit in the input relation, returns true.
 /// Otherwise, returns false.</returns>
-let validateColumnNames rel columnNames =
+let validateColumnNames columnNames rel =
     let refColumnNames = (Relation.value rel).ColumnKeys |> Seq.toList
 
     columnNames
@@ -574,6 +574,7 @@ let rec evalExpression: EvalExpression =
             | Product -> evalProductExpression exp1 exp2
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond
         | JoinExpression ((exp1, exp2), cond) -> evalJoinExpression exp1 exp2 cond
+        | RenameExpression ((qualifier, col), newCol) -> evalRenameExpression qualifier col newCol
 
 and evalProjectExpression: EvalProjectExpression =
     fun projectExp ->
@@ -582,11 +583,11 @@ and evalProjectExpression: EvalProjectExpression =
         let (ColumnList columns) = columnList
 
         let project columns rel =
-            if validateColumnNames rel columns then
+            if validateColumnNames columns rel then
                 Relation.project rel columns |> Result.Ok
             else
-                ProjectionError.ColumnNotFound
-                |> ProjectionError
+                ColumnError.ColumnNotFound
+                |> ColumnError
                 |> Result.Error
 
         rel |> Result.bind (project columns)
@@ -637,6 +638,19 @@ and evalJoinExpression exp1 exp2 cond =
     | Result.Error err1, Result.Ok rel2 -> err1 |> Result.Error
     // When both relations are illegal, only raise the first error.
     | Result.Error err1, Result.Error err2 -> err1 |> Result.Error
+
+and evalRenameExpression qualifier col newCol =
+    let relation = Relation.openRelation qualifier
+
+    let rename col newCol rel =
+        if validateColumnNames [ col ] rel then
+            Relation.rename rel col newCol |> Result.Ok
+        else
+            ColumnError.ColumnNotFound
+            |> ColumnError
+            |> Result.Error
+
+    relation |> Result.bind (rename col newCol)
 
 let evalPrintStmt identifier =
     let rel = Relation.openRelation identifier
@@ -692,6 +706,10 @@ let evalAdapted paserResult =
         | RestrictExpression (exp, cond) -> evalRestrictExpression exp cond |> saveAndPrint
 
         | JoinExpression ((exp1, exp2), cond) -> evalJoinExpression exp1 exp2 cond |> saveAndPrint
+
+        | RenameExpression ((qualifier, col), newCol) ->
+            evalRenameExpression qualifier col newCol
+            |> saveAndPrint
 
         | Identifier identifier ->
             printfn "Only relation name is provided."

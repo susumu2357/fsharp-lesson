@@ -207,3 +207,13 @@ eval
     "r3 = project (join (restrict (goods) (description = \"DRESS\")) (r2) (product_code = r2.product_code)) branch, size, colour, sell_price"
 
 eval "print r3"
+
+
+// Test the rename
+eval "use wikipedia"
+eval "rename (Employee.Name) renamed"
+eval "renamingTest = rename (Employee.Name) renamed"
+eval "print renamingTest"
+
+// ColumnNotFound
+eval "rename (Dept.Name) renamed"

@@ -14,6 +14,7 @@ type Expression =
     | InfixExpression of ((Expression * InfixOperator) * Expression)
     | RestrictExpression of Expression * Condition
     | JoinExpression of ((Expression * Expression) * Condition)
+    | RenameExpression of ((string * string) * string)
 
 and Identifier = string
 
@@ -81,11 +82,11 @@ and AssignStmt = Identifier * Expression
 type ExecutionError =
     | IncorrectPathError
     | EmptyCSVError
-    | ProjectionError of ProjectionError
+    | ColumnError of ColumnError
     | ComparabilityError of ComparabilityError
     | ConditionError of ConditionError
 
-and ProjectionError = ColumnNotFound
+and ColumnError = ColumnNotFound
 
 and ComparabilityError =
     | ColumnsMismatch

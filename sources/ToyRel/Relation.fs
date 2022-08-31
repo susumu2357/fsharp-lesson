@@ -44,6 +44,11 @@ module Relation =
 
     let project (Relation df) (columns: string list) = create df.Columns.[columns]
 
+    let rename (Relation df) (col: string) (newCol: string) =
+        df
+        |> Frame.mapColKeys (fun c -> if c = col then newCol else c)
+        |> create
+
     let saveAs basename rel =
         let df = value rel
         df.SaveCsv(path = databaseBase + dbPath + basename + ".csv", includeRowKeys = false)

@@ -171,10 +171,18 @@ let pJoinExpression =
     joinLeft .>>. joinRight .>>. condition
     |>> JoinExpression
 
+let pRenameExpression =
+    (str_ws "rename"
+     >>. str_ws "("
+     >>. pQualifiedIdentifier
+     .>> str_ws ")")
+    .>>. pColumn
+    |>> RenameExpression
 
 pExpressionRef.Value <-
     pProjectExpression
     <|> pRestrictExpression
+    <|> pRenameExpression
     <|> pJoinExpression
     <|> pIdentifierExpression
     <|> pInfixExpression
@@ -185,6 +193,7 @@ let pProjectStmt = pProjectExpression |>> Expression
 let pRestrictStmt = pRestrictExpression |>> Expression
 let pInfixStmt = pInfixExpression |>> Expression
 let pJoinStmt = pJoinExpression |>> Expression
+let pRenameStmt = pRenameExpression |>> Expression
 
 let pPrintStmt =
     let stmt = (str_ws "print") >>. pIdentifier
@@ -217,6 +226,7 @@ let pStmt =
     <|> pQuitStmt
     <|> pProjectStmt
     <|> pRestrictStmt
+    <|> pRenameStmt
     <|> pJoinStmt
     <|> pAssignStmt
     <|> pInfixStmt
