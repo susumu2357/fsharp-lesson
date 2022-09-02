@@ -42,14 +42,14 @@ let validateColumn: Frame<int, string> -> string -> ColumnValidity =
         else
             ColumnNotFound |> ColumnValidity.ConditionError
 
-/// <summary>Validate union comparability.
-/// If the relations have the same column names, the same column types, and the same order of columns, these are called union comparable.</summary>
+/// <summary>Validate union compatibility.
+/// If the relations have the same column names, the same column types, and the same order of columns, these are called union compatible.</summary>
 /// <param name="df1">The Deedle Frame of the left hand side of 'difference'.</param>
 /// <param name="df2">The Deedle Frame of the right hand side of 'difference'.</param>
-/// <returns>If the inputs are union comparable, returns Comparable of Comparability type.
-/// Otherwise, returns one of cases of ComparabilityError.</returns>
+/// <returns>If the inputs are union compatible, returns Compatible of Compatibility type.
+/// Otherwise, returns one of cases of CompatibilityError.</returns>
 /// For example, if the column names do not match, raise ColumnsMismatch error.</returns>
-let validateComparability df1 df2 =
+let validateCompatibility df1 df2 =
     let col1, colType1 = getColsAndTypes df1
     let col2, colType2 = getColsAndTypes df2
 
@@ -57,22 +57,22 @@ let validateComparability df1 df2 =
     let checkTypes = (colType1 = colType2)
 
     match (checkColumns, checkTypes) with
-    | (true, true) -> Comparable
-    | (true, false) -> ColumnTypesMismatch |> ComparabilityError
+    | (true, true) -> Compatible
+    | (true, false) -> ColumnTypesMismatch |> CompatibilityError
     | (false, _) ->
         if List.sort col1 = List.sort col2 then
-            ColumnsOrderMismatch |> ComparabilityError
+            ColumnsOrderMismatch |> CompatibilityError
         else
-            ColumnsMismatch |> ComparabilityError
+            ColumnsMismatch |> CompatibilityError
 
 let infixOperation rel1 rel2 computeRelation =
     let df1 = Relation.value rel1
     let df2 = Relation.value rel2
 
-    match validateComparability df1 df2 with
-    | Comparable _ -> computeRelation df1 df2 |> Result.Ok
-    | ComparabilityError err ->
-        ExecutionError.ComparabilityError err
+    match validateCompatibility df1 df2 with
+    | Compatible _ -> computeRelation df1 df2 |> Result.Ok
+    | CompatibilityError err ->
+        ExecutionError.CompatibilityError err
         |> Result.Error
 
 let difference rel1 rel2 =
