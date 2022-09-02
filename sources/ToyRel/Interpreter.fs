@@ -1,6 +1,7 @@
 module Interpreter
 
-open RadLine
+// open RadLine
+open ReCJKLine
 open System
 
 open Common
@@ -42,18 +43,20 @@ let paserResultAdapted str =
 let eval str =
     paserResultAdapted str |> Result.bind evalAdapted
 
-let lineEditor = LineEditor()
-lineEditor.Prompt <- LineEditorPrompt(">", ".")
-lineEditor.KeyBindings.Add<PreviousHistoryCommand>(ConsoleKey.LeftArrow, ConsoleModifiers.Control)
-lineEditor.KeyBindings.Add<NextHistoryCommand>(ConsoleKey.RightArrow, ConsoleModifiers.Control)
+// let lineEditor = LineEditor()
+// lineEditor.Prompt <- LineEditorPrompt(">", ".")
+// lineEditor.KeyBindings.Add<PreviousHistoryCommand>(ConsoleKey.LeftArrow, ConsoleModifiers.Control)
+// lineEditor.KeyBindings.Add<NextHistoryCommand>(ConsoleKey.RightArrow, ConsoleModifiers.Control)
 
 let rec repl () =
-    let text =
-        lineEditor
-            .ReadLine(
-                System.Threading.CancellationToken.None
-            )
-            .Result
+    let lineEditor = new ReCJKLine.ReCJKLine()
+    let text = lineEditor.ReadLine(">")
+    // let test =
+    // lineEditor
+    //     .ReadLine(
+    //         System.Threading.CancellationToken.None
+    //     )
+    //     .Result
 
     match eval text with
     | Result.Ok _ -> repl ()
