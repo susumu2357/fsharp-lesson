@@ -13,7 +13,7 @@ let searchWord targetDir targetWord =
         files
         |> Seq.filter ( fun file -> not (excludingExtensions.Contains (FileInfo(file).Extension)))
         |> Seq.map File.ReadLines
-        |> Seq.map (fun lines -> lines |> Seq.cast<string>)
+        |> Seq.map Seq.cast<string>
         |> Seq.map (fun lines -> 
             lines |>
                 Seq.filter (
