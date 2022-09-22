@@ -5,10 +5,10 @@ open System.IO
 
 let excludingExtensions = [".png"; ".jpg"; ".jpeg"] |> Collections.Generic.HashSet
 
-/// <summary>Search the targetWord in the files located in the targetDir.</summary>
+/// <summary>Search the targetWord in the files located in the targetDir and subdirectories under the targetDir.</summary>
 /// <returns>A sequence of "filepath: line" where the line contains the targetWord.</returns>
-let searchWordWithinDir (targetWord:string) (targetDir: string) =
-    let files = Directory.EnumerateFiles(targetDir)
+let searchWordUnderDir (targetWord:string) (targetDir: string) =
+    let files = Directory.EnumerateFiles(targetDir, "*", SearchOption.AllDirectories)
 
     // Keep lines which contain the targetWord for each file.
     let filteredLines =
@@ -28,19 +28,3 @@ let searchWordWithinDir (targetWord:string) (targetDir: string) =
         |> Seq.map (fun line -> file + ": " + line)
      )
     |> Seq.collect id
-
-let rec searchWordUnderDir (targetWord:string) (targetDir: string) =
-    let currentDirResult = searchWordWithinDir targetWord targetDir
-
-    let childrenDirs = Directory.EnumerateDirectories(targetDir)
-
-    if childrenDirs |> Seq.isEmpty then
-        currentDirResult
-    else
-        let childrenDirsResults =
-            childrenDirs
-            |> Seq.map (fun dir -> 
-                searchWordUnderDir targetWord dir)
-            |> Seq.collect id
-        (currentDirResult, childrenDirsResults)
-        ||> Seq.append
