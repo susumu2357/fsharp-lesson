@@ -39,7 +39,7 @@ let createCommand targetWord targetDir commandType =
     | FsharpSimple -> addArguments "dotnet run -c Release"
 
 // Bake in targetWord and targetDir
-let command = createCommand "pipe3" "test_target/fparsec"
+let command = createCommand "pipe3" (Environment.CurrentDirectory + "/test_target/fparsec")
 
 // Measure time and memory usage for each command.
 let results =
