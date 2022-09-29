@@ -3,7 +3,7 @@
 // which is based on
 // https://stackoverflow.com/questions/3065409/starting-a-process-synchronously-and-streaming-the-output/3065876#3065876
 
-module executeProcess
+module ExecuteProcess
 
 open System
 

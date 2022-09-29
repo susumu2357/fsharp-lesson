@@ -9,51 +9,25 @@ open SimpleSearch
 
 searchWordUnderDir "pipe3" "test_target"
 
-#load "executeProcess.fs"
-open executeProcess
 
-type Command =
-    | Ag
-    | Grep
-    | FsharpSimple // SimpleSearch
-
-// Prepare labels
-let createLabels datasetName =
-    [Ag; Grep; FsharpSimple]
-    |> List.map (fun case ->
-        match case with
-        | Ag -> datasetName + "_ag"
-        | Grep -> datasetName + "_grep"
-        | FsharpSimple -> datasetName + "_fsharpSimple"
+let testProcess = Diagnostics.Process.Start(
+    new Diagnostics.ProcessStartInfo("grep", "-R pipe3 test_target")
     )
-let labels = createLabels "fparsec"
+let mutable peakWorkingSet = int64 0
+while not testProcess.HasExited do
+    testProcess.Refresh()
+    Console.WriteLine("-------------------------------------")
+    Console.WriteLine($"  Physical memory usage     : {testProcess.WorkingSet64}")
+    Console.WriteLine($"  Peak physical memory usage     : {testProcess.PeakWorkingSet64}")
+    // Console.WriteLine($"  Base priority             : {testProcess.BasePriority}")
+    // Console.WriteLine($"  Priority class            : {testProcess.PriorityClass}")
+    // Console.WriteLine($"  User processor time       : {testProcess.UserProcessorTime}")
+    // Console.WriteLine($"  Privileged processor time : {testProcess.PrivilegedProcessorTime}")
+    // Console.WriteLine($"  Total processor time      : {testProcess.TotalProcessorTime}")
+    // Console.WriteLine($"  Paged system memory size  : {testProcess.PagedSystemMemorySize64}")
+    // Console.WriteLine($"  Paged memory size         : {testProcess.PagedMemorySize64}")
 
-
-let createCommand targetWord targetDir commandType =
-    let addArguments c =
-        c + " " + targetWord + " " + targetDir
-        
-    match commandType with
-    | Ag -> addArguments "ag"
-    | Grep -> addArguments "grep -R"
-    | FsharpSimple -> addArguments "dotnet run -c Release"
-
-// Bake in targetWord and targetDir
-let command = createCommand "pipe3" (Environment.CurrentDirectory + "/test_target/fparsec")
-
-// Measure time and memory usage for each command.
-let results =
-    [Ag; Grep; FsharpSimple]
-    |> List.map command
-    |> List.map (fun commandString -> "-f \"%e,%M\" " + commandString)
-    |> List.map (executeProcess "/usr/bin/time")
-    |> List.map (fun result -> result.StdErr)
-
-// Add the header
-let resultsWithLabels =
-    ["label,time(sec),memory(kB)"] @ (
-        (labels, results) 
-        ||> List.map2 (fun label results -> label + "," + results)
-        )
-
-File.WriteAllLines("benchmarkResults.csv", resultsWithLabels)
+    if testProcess.PeakWorkingSet64 > peakWorkingSet then
+        peakWorkingSet <- testProcess.PeakWorkingSet64
+Console.WriteLine($"  Max peak physical memory usage : {peakWorkingSet}")
+Console.WriteLine($"  Peak physical memory usage : {testProcess.PeakWorkingSet64}")
