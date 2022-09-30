@@ -18,7 +18,7 @@ let createLabels datasetName =
         | Grep -> datasetName + "_grep"
         | FsharpSimple -> datasetName + "_fsharpSimple"
     )
-let labels = createLabels "fsharp"
+let labels = createLabels "mongo"
 
 // Need to prepare the binary file by executing "dotnet build -c Release"
 let createCommand targetWord targetDir commandType =
@@ -31,7 +31,7 @@ let createCommand targetWord targetDir commandType =
     | FsharpSimple -> addArguments "bin/Release/net6.0/ToyInd"
 
 // Bake in targetWord and targetDir
-let command = createCommand "generics" (Environment.CurrentDirectory + "/test_target/fsharp")
+let command = createCommand "paging" (Environment.CurrentDirectory + "/test_target/mongo")
 
 // Measure time and memory usage for each command.
 let results =
