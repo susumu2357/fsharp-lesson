@@ -2,3 +2,6 @@ label,time(sec),memory(kB)
 fparsec_ag,0.02,3688
 fparsec_grep,0.01,3020
 fparsec_fsharpSimple,0.26,33848
+fsharp_ag,1.01,4164
+fsharp_grep,0.15,3476
+fsharp_fsharpSimple,0.82,38016

@@ -18,7 +18,7 @@ let createLabels datasetName =
         | Grep -> datasetName + "_grep"
         | FsharpSimple -> datasetName + "_fsharpSimple"
     )
-let labels = createLabels "fparsec"
+let labels = createLabels "fsharp"
 
 // Need to prepare the binary file by executing "dotnet build -c Release"
 let createCommand targetWord targetDir commandType =
@@ -31,7 +31,7 @@ let createCommand targetWord targetDir commandType =
     | FsharpSimple -> addArguments "bin/Release/net6.0/ToyInd"
 
 // Bake in targetWord and targetDir
-let command = createCommand "pipe3" (Environment.CurrentDirectory + "/test_target/fparsec")
+let command = createCommand "generics" (Environment.CurrentDirectory + "/test_target/fsharp")
 
 // Measure time and memory usage for each command.
 let results =
@@ -41,11 +41,19 @@ let results =
     |> List.map (executeProcess "/usr/bin/time")
     |> List.map (fun result -> result.StdErr)
 
-// Add the header
+let previousResults = File.ReadAllLines("benchmarkResults.csv") |> Seq.toList
 let resultsWithLabels =
-    ["label,time(sec),memory(kB)"] @ (
-        (labels, results) 
-        ||> List.map2 (fun label results -> label + "," + results)
-        )
+    if List.length previousResults = 0 then
+        // Add the header
+        ["label,time(sec),memory(kB)"] @ (
+            (labels, results) 
+            ||> List.map2 (fun label results -> label + "," + results)
+            )
+    else
+        // Append the results
+        previousResults @ (
+            (labels, results) 
+            ||> List.map2 (fun label results -> label + "," + results)
+            )
 
 File.WriteAllLines("benchmarkResults.csv", resultsWithLabels)
