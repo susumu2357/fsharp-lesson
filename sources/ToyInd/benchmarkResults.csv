@@ -8,3 +8,6 @@ fsharp_fsharpSimple,0.82,38016
 mongo_ag,3.54,24148
 mongo_grep,0.82,3516
 mongo_fsharpSimple,19.82,37004
+elsevier_ag,7.11,8132
+elsevier_grep,5.72,14828
+elsevier_fsharpSimple,45.65,35612

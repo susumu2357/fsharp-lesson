@@ -18,7 +18,7 @@ let createLabels datasetName =
         | Grep -> datasetName + "_grep"
         | FsharpSimple -> datasetName + "_fsharpSimple"
     )
-let labels = createLabels "mongo"
+let labels = createLabels "elsevier"
 
 // Need to prepare the binary file by executing "dotnet build -c Release"
 let createCommand targetWord targetDir commandType =
@@ -31,7 +31,7 @@ let createCommand targetWord targetDir commandType =
     | FsharpSimple -> addArguments "bin/Release/net6.0/ToyInd"
 
 // Bake in targetWord and targetDir
-let command = createCommand "paging" (Environment.CurrentDirectory + "/test_target/mongo")
+let command = createCommand "higgs" (Environment.CurrentDirectory + "/test_target/elsevier")
 
 // Measure time and memory usage for each command.
 let results =
