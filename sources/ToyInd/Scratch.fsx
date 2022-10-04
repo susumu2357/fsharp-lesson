@@ -31,3 +31,24 @@ while not testProcess.HasExited do
         peakWorkingSet <- testProcess.PeakWorkingSet64
 Console.WriteLine($"  Max peak physical memory usage : {peakWorkingSet}")
 Console.WriteLine($"  Peak physical memory usage : {testProcess.PeakWorkingSet64}")
+
+#load "CleanFsharpRepository.fs"
+open CleanFsharpRepository
+
+deleteFsprojUnderDir "test_target/fparsec"
+deleteFsprojUnderDir "test_target/fsharp"
+
+#load "FileIndex.fs"
+open FileIndex
+
+FileIndex.createFileIndex "test_target/fparsec"
+let fileIndexFparsec = FileIndex.loadFileIndex "test_index/fparsec"
+FileIndex.lookupFileId fileIndexFparsec "test_target/fparsec/Samples/FSharpParsingSample/FParsecVersion/parser.fs" // 166
+
+FileIndex.createFileIndex "test_target/fsharp"
+let fileIndexFsharp = FileIndex.loadFileIndex "test_index/fsharp"
+FileIndex.lookupFileId fileIndexFsharp "test_target/fsharp/tests/fsharp/core/unicode/kanji-unicode-utf8-withsig-codepage-65001.fs" // 3559
+
+FileIndex.createFileIndex "test_target/elsevier"
+let fileIndexElsevier = FileIndex.loadFileIndex "test_index/elsevier"
+FileIndex.lookupFileId fileIndexElsevier "test_target/elsevier/json/S0378377418304001.json" // 36437
