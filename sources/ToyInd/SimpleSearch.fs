@@ -7,7 +7,7 @@ let excludingExtensions = [".png"; ".jpg"; ".jpeg"] |> Collections.Generic.HashS
 
 /// <summary>Search the targetWord in the files located in the targetDir and subdirectories under the targetDir.</summary>
 /// <returns>A sequence of "filepath: line" where the line contains the targetWord.</returns>
-let searchWordUnderDir (targetWord:string) (targetDir: string) =
+let searchWordUnderDir (targetDir: string) (targetWord:string) =
     let files = Directory.EnumerateFiles(targetDir, "*", SearchOption.AllDirectories)
 
     // Keep lines which contain the targetWord for each file.
