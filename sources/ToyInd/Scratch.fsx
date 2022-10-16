@@ -7,7 +7,7 @@ open SimpleSearch
 // Environment.CurrentDirectory <- @"C:\Users\susum\OneDrive\Documents\fsharp\fsharp-lesson\sources\ToyInd"
 // Environment.CurrentDirectory <- @"C:\Users\susum\Documents\fsharp-lesson\sources\ToyInd"
 
-searchWordUnderDir "pipe3" "test_target"
+searchWordUnderDir "test_target" "pipe3"
 
 
 let testProcess = Diagnostics.Process.Start(
@@ -150,3 +150,9 @@ randomElsevierFiles
 |> Seq.map lookupElsevier
 stopWatch.Stop()
 printfn "%f" stopWatch.Elapsed.TotalMilliseconds
+
+// Create trigram index
+#load "TrigramIndex.fs"
+open TrigramIndex
+
+TrigramIndex.createTrigramIndex "test_target/fparsec"

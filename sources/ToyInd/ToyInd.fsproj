@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="SimpleSearch.fs" />
     <Compile Include="FileIndex.fs" />
+    <Compile Include="TrigramIndex.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
