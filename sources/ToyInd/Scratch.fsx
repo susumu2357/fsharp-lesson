@@ -156,3 +156,61 @@ printfn "%f" stopWatch.Elapsed.TotalMilliseconds
 open TrigramIndex
 
 TrigramIndex.createTrigramIndex "test_target/fparsec"
+
+let trigramIndex = 
+    TrigramIndex.loadWholeTrigramIndex "test_index/fparsec"
+    |> Async.RunSynchronously
+
+trigramIndex["000"]
+(*
+  ["11"; "12"; "13"; "14"; "16"; "18"; "20"; "21"; "22"; "23"; "26"; "27";
+   "31"; "32"; "35"; "36"; "37"; "38"; "44"; "45"; "58"; "60"; "63"; "64";
+   "74"; "81"; "82"; "83"; "85"; "92"; "97"; "98"; "99"; "101"; "110"; "116";
+   "121"; "143"; "146"; "149"; "151"; "158"; "161"; "162"; "164"; "176"; "180";
+   "181"]
+*)
+
+TrigramIndex.fetchTrigramIndex "test_index/fparsec" "pipe3"
+// map [("ipe", ["7"; ...]); ("pe3", ["13"; ...]); ("pip", ["14"; ...])]
+
+let trigramMap = TrigramIndex.fetchTrigramIndex "test_index/fparsec" "pipe3"
+
+#load "SimpleSearch.fs"
+open SimpleSearch
+#load "FileIndex.fs"
+open FileIndex
+#load "TrigramIndex.fs"
+open TrigramIndex
+
+let hits = TrigramIndex.searchWord "test_target/fparsec" "pipe3"
+Seq.length hits
+// > Seq.length hits;;
+// val it: int = 46
+
+// Measure FParsec
+// Create trigram_index
+stopWatch <- Diagnostics.Stopwatch.StartNew()
+TrigramIndex.createTrigramIndex "test_target/fparsec"
+stopWatch.Stop()
+printfn "%f" stopWatch.Elapsed.TotalMilliseconds
+
+// Measure FSharp
+// Create trigram_index
+stopWatch <- Diagnostics.Stopwatch.StartNew()
+TrigramIndex.createTrigramIndex "test_target/fsharp"
+stopWatch.Stop()
+printfn "%f" stopWatch.Elapsed.TotalSeconds
+
+// Measure Mongo
+// Create trigram_index
+stopWatch <- Diagnostics.Stopwatch.StartNew()
+TrigramIndex.createTrigramIndex "test_target/mongo"
+stopWatch.Stop()
+printfn "%f" stopWatch.Elapsed.TotalMinutes
+
+// Measure Elsevier
+// Create trigram_index
+stopWatch <- Diagnostics.Stopwatch.StartNew()
+TrigramIndex.createTrigramIndex "test_target/elsevier"
+stopWatch.Stop()
+printfn "%f" stopWatch.Elapsed.TotalMinutes

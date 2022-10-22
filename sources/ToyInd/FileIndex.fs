@@ -28,7 +28,15 @@ module FileIndex =
             |> Map
             |> FileIndex
         else
-            failwithf "File does not exist"
+            failwithf "File does not exist at %s" fileName
 
     let lookupFileId (FileIndex fileIndex) (filePath: string) =
         fileIndex.[filePath]
+
+    let lookupFilePath (FileIndex fileIndex) (fileId: int) =
+        let inverseFileIndex =
+            fileIndex
+            |> Map.fold (fun accMap key value -> 
+                Map.add value key accMap
+            ) Map.empty<int, string>
+        inverseFileIndex.[fileId]

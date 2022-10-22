@@ -1,0 +1,9 @@
+label,time(sec),memory(kB)
+fparsec_ag,0.03,3748
+fparsec_grep,0.00,3036
+fparsec_fsharpSimple,0.26,35864
+fparsec_fsharpNaiveTrigram,0.18,35168
+fsharp_ag,0.65,3780
+fsharp_grep,0.13,3456
+fsharp_fsharpSimple,0.68,38292
+fsharp_fsharpNaiveTrigram,2.26,46212

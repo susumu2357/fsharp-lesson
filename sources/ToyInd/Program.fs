@@ -1,8 +1,13 @@
 ﻿open SimpleSearch
+open TrigramIndex
+
+open System.Resources.Extensions
 
 [<EntryPoint>]
 let main args =
-    let searchResult = searchWordUnderDir args[0] args[1]
+    let searchResult = 
+        // searchWordUnderDir args[0] args[1]
+        TrigramIndex.searchWord args[0] args[1]
 
     // printfn "%A" searchResult
 
