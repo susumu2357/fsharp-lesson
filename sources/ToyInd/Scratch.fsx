@@ -182,10 +182,22 @@ open FileIndex
 #load "TrigramIndex.fs"
 open TrigramIndex
 
-let hits = TrigramIndex.searchWord "test_target/fparsec" "pipe3"
+let hits = TrigramIndex.searchWord "generics" "test_target/fsharp" true
+// The number of file ids for the first trigram: 1495
+// The number of file ids after taking intersection: 295
+
 Seq.length hits
 // > Seq.length hits;;
 // val it: int = 46
+
+TrigramIndex.searchWord "match" "test_target/fsharp" true
+// The number of file ids for the first trigram: 1826
+// The number of file ids after taking intersection: 1638
+
+TrigramIndex.searchWord "EntryPoint" "test_target/fsharp" true
+// The number of file ids for the first trigram: 4370
+// The number of file ids after taking intersection: 217
+
 
 // Measure FParsec
 // Create trigram_index
@@ -214,3 +226,34 @@ stopWatch <- Diagnostics.Stopwatch.StartNew()
 TrigramIndex.createTrigramIndex "test_target/elsevier"
 stopWatch.Stop()
 printfn "%f" stopWatch.Elapsed.TotalMinutes
+
+
+#load "SimpleSearch.fs"
+open SimpleSearch
+#load "FileIndex.fs"
+open FileIndex
+#load "TrigramIndex.fs"
+open TrigramIndex
+#load "Measurement.fs"
+open Measurement
+
+let testMeasure = new Measurement("test")
+let anotherMeasure = new Measurement("another")
+
+anotherMeasure.start()
+testMeasure.start()
+TrigramIndex.createTrigramIndex "test_target/fparsec"
+testMeasure.stop()
+testMeasure.start()
+TrigramIndex.searchWord "generics" "test_target/fsharp" true
+testMeasure.stop()
+anotherMeasure.stop()
+
+testMeasure.showRecord()
+// Key: test
+// Total time (sec): 20
+// The number of measurements: 2
+anotherMeasure.showRecord()
+// Key: another
+// Total time (sec): 20
+// The number of measurements: 1

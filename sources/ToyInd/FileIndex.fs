@@ -30,13 +30,18 @@ module FileIndex =
         else
             failwithf "File does not exist at %s" fileName
 
+    let loadInverseFileIndex (targetDir: string) =
+        let fileName: string = targetDir + "/path_list.txt"
+        if File.Exists fileName then
+            File.ReadAllLines(fileName) 
+            |> Seq.toList
+            |> List.mapi (fun i elm -> (i+1, elm))
+            |> Map
+        else
+            failwithf "File does not exist at %s" fileName
+
     let lookupFileId (FileIndex fileIndex) (filePath: string) =
         fileIndex.[filePath]
 
-    let lookupFilePath (FileIndex fileIndex) (fileId: int) =
-        let inverseFileIndex =
-            fileIndex
-            |> Map.fold (fun accMap key value -> 
-                Map.add value key accMap
-            ) Map.empty<int, string>
+    let lookupFilePath (inverseFileIndex: Map<int, string>) (fileId: int) =
         inverseFileIndex.[fileId]

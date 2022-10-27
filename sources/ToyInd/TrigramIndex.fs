@@ -134,7 +134,7 @@ module TrigramIndex =
             return trigramIndex
         }
      
-    let fetchTrigramIndex (indexDir: string) (searchWord: string) =
+    let fetchTrigramIndex (indexDir: string) (searchWord: string) (showFileIds: bool) =
         let trigrams = 
             ngram 3 searchWord
             |> List.distinct
@@ -147,22 +147,28 @@ module TrigramIndex =
                     else string trigram[0]
                 indexDir + (sprintf "/%s/" firstChar) + trigram[1..] + ".txt"
                 )
+        
+        let trigramIndex = 
+            (trigrams, files)
+            ||> Seq.map2 (fun trigram fileName ->
+                let fileIds = File.ReadAllLines fileName |> Array.toList
 
-        (trigrams, files)
-        ||> Seq.map2 (fun trigram fileName ->
-            let fileIds = File.ReadAllLines fileName |> Array.toList
+                (trigram, fileIds)
+            )
+            |> Seq.fold (fun accMap keyVal ->
+                let (key, value) = keyVal
+                Map.add key value accMap
+            ) Map.empty<string, string list>
 
-            (trigram, fileIds)
-        )
-        |> Seq.fold (fun accMap keyVal ->
-            let (key, value) = keyVal
-            Map.add key value accMap
-        ) Map.empty<string, string list>
+        if showFileIds then 
+            printfn "The number of file ids for the first trigram: %i" (List.length trigramIndex[trigrams[0]])
 
-    let searchWord (searchWord: string) (targetDir: string) =
+        trigramIndex
+
+    let searchWord (searchWord: string) (targetDir: string) (showFileIds: bool) =
         let indexDir = Environment.CurrentDirectory + "/test_index/" + (targetDir.Split [|'/'|] |> Array.last)
-        let fileIndex = FileIndex.loadFileIndex indexDir
-        let trigramMap = fetchTrigramIndex indexDir searchWord
+        let fileIndex = FileIndex.loadInverseFileIndex indexDir
+        let trigramMap = fetchTrigramIndex indexDir searchWord showFileIds
         let firstKey = trigramMap.Keys |> Seq.toList |> List.head
 
         let filePaths =
@@ -178,6 +184,9 @@ module TrigramIndex =
             )
             |> List.toSeq
         
+        if showFileIds then
+            printfn "The number of file ids after taking intersection: %i" (Seq.length filePaths)
+
         SimpleSearch.searchWordFromFiles searchWord filePaths
 
         
