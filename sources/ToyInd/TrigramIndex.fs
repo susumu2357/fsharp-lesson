@@ -6,6 +6,7 @@ open System.Text.RegularExpressions
 
 open SimpleSearch
 open FileIndex
+open Measurement
 
 module TrigramIndex =
     type T = TrigramIndex of Map<string, string list>
@@ -91,19 +92,29 @@ module TrigramIndex =
         |> ignore
 
         let files = Directory.EnumerateFiles(targetDir, "*", SearchOption.AllDirectories)
-            
+
+        Measurement.start "trigramMap"
         let trigramMap =
             files
             |> createDistinctTrigrams
             |> Async.RunSynchronously
             |> createTrigramMap
             |> Async.RunSynchronously
+        Measurement.stop "trigramMap"
 
         printfn "Writing TrigramIndex..."
 
+        Measurement.start "writingTrigramMap"
         trigramMap
         |> writingTrigramMap targetDir
         |> Async.StartImmediate
+        Measurement.stop "writingTrigramMap"
+
+        Measurement.showRecord ()
+        |> Seq.map (fun elm ->
+            printfn "%A" elm
+        )
+        |> ignore
 
         printfn "TrigramIndex for %s created" targetDir
 
@@ -167,10 +178,18 @@ module TrigramIndex =
 
     let searchWord (searchWord: string) (targetDir: string) (showFileIds: bool) =
         let indexDir = Environment.CurrentDirectory + "/test_index/" + (targetDir.Split [|'/'|] |> Array.last)
+
+        Measurement.start "fileIndex"
         let fileIndex = FileIndex.loadInverseFileIndex indexDir
+        Measurement.stop "fileIndex"
+
+        Measurement.start "trigramMap"
         let trigramMap = fetchTrigramIndex indexDir searchWord showFileIds
+        Measurement.stop "trigramMap"
+
         let firstKey = trigramMap.Keys |> Seq.toList |> List.head
 
+        Measurement.start "filePaths"
         let filePaths =
             trigramMap
             |> Map.fold (fun accIds trigram ids ->
@@ -183,10 +202,21 @@ module TrigramIndex =
                 FileIndex.lookupFilePath fileIndex (int fileId)
             )
             |> List.toSeq
-        
+        Measurement.stop "filePaths"
+
         if showFileIds then
             printfn "The number of file ids after taking intersection: %i" (Seq.length filePaths)
 
-        SimpleSearch.searchWordFromFiles searchWord filePaths
+        Measurement.start "SimpleSearch"
+        let results = SimpleSearch.searchWordFromFiles searchWord filePaths
+        Measurement.stop "SimpleSearch"
 
+        let record = Measurement.showRecord ()
+        (record.Keys, record.Values)
+        ||> Seq.map2 (fun key value ->
+            printfn "%s: %A" key value
+        )
+        |> ignore
+
+        results
         

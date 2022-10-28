@@ -237,23 +237,17 @@ open TrigramIndex
 #load "Measurement.fs"
 open Measurement
 
-let testMeasure = new Measurement("test")
-let anotherMeasure = new Measurement("another")
+Measurement.start "test"
+System.Threading.Thread.Sleep(1000)
+Measurement.stop "test"
+let record = Measurement.showRecord ()
+record["test"].TotalTime
+record
+|> Seq.map (fun d ->
+    printfn "%A" d
+)
 
-anotherMeasure.start()
-testMeasure.start()
+// Top level measurements
 TrigramIndex.createTrigramIndex "test_target/fparsec"
-testMeasure.stop()
-testMeasure.start()
-TrigramIndex.searchWord "generics" "test_target/fsharp" true
-testMeasure.stop()
-anotherMeasure.stop()
 
-testMeasure.showRecord()
-// Key: test
-// Total time (sec): 20
-// The number of measurements: 2
-anotherMeasure.showRecord()
-// Key: another
-// Total time (sec): 20
-// The number of measurements: 1
+TrigramIndex.searchWord "pipe3" "test_target/fparsec" true
