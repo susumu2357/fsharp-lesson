@@ -228,26 +228,64 @@ stopWatch.Stop()
 printfn "%f" stopWatch.Elapsed.TotalMinutes
 
 
+#load "Measurement.fs"
+open Measurement
 #load "SimpleSearch.fs"
 open SimpleSearch
 #load "FileIndex.fs"
 open FileIndex
 #load "TrigramIndex.fs"
 open TrigramIndex
-#load "Measurement.fs"
-open Measurement
 
 Measurement.start "test"
 System.Threading.Thread.Sleep(1000)
 Measurement.stop "test"
-let record = Measurement.showRecord ()
-record["test"].TotalTime
-record
-|> Seq.map (fun d ->
-    printfn "%A" d
-)
+let payload = Measurement.showRecord ()
+payload
 
 // Top level measurements
 TrigramIndex.createTrigramIndex "test_target/fparsec"
 
-TrigramIndex.searchWord "pipe3" "test_target/fparsec" true
+// Measure the TrigramIndex.searchWord
+let fparsecResults = TrigramIndex.searchWord "pipe3" "test_target/fparsec" false
+Seq.length fparsecResults
+// val it: int = 46
+
+Measurement.showRecord ()
+//   dict
+//     [("fileIndex", { TotalTime = 0
+//                      NumCalls = 1 }); ("relevantTrigramMap", { TotalTime = 0
+//                                                                NumCalls = 1 });
+//      ("filePaths", { TotalTime = 0
+//                      NumCalls = 1 }); ("SimpleSearch", { TotalTime = 0
+//                                                          NumCalls = 1 });
+//      ("filterLines", { TotalTime = 0
+//                        NumCalls = 1 }); ("aggregateLines", { TotalTime = 0
+//                                                              NumCalls = 1 })]
+
+Measurement.reset ()
+let fsharpResults = TrigramIndex.searchWord "generics" "test_target/fsharp" false
+Seq.length fsharpResults
+// val it: int = 18
+
+Measurement.showRecord ()
+//   dict
+//     [("fileIndex", { TotalTime = 20
+//                      NumCalls = 1 }); ("relevantTrigramMap", { TotalTime = 0
+//                                                                NumCalls = 1 });
+//      ("filePaths", { TotalTime = 40
+//                      NumCalls = 1 }); ("SimpleSearch", { TotalTime = 0
+//                                                          NumCalls = 1 });
+//      ("filterLines", { TotalTime = 0
+//                        NumCalls = 1 }); ("aggregateLines", { TotalTime = 0
+//                                                              NumCalls = 1 })]
+Measurement.reset ()
+let simpleSearchResults = searchWordUnderDir "generics" "test_target/fsharp"
+Seq.length simpleSearchResults
+// val it: int = 90
+
+Measurement.showRecord ()
+//   dict
+//     [("filterLines", { TotalTime = 0
+//                        NumCalls = 1 }); ("aggregateLines", { TotalTime = 0
+//                                                              NumCalls = 1 })]

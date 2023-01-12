@@ -40,7 +40,7 @@ let createCommand targetWord targetDir commandType =
     | Ag -> addArguments "ag"
     | Grep -> addArguments "grep -R"
     | FsharpSimple -> addArguments "bin/Release/net6.0/ToyInd"
-    | FsharpNaiveTrigram -> addArguments "tmp/Release/net6.0/ToyInd"
+    | FsharpNaiveTrigram -> addArguments "tmp/ToyInd"
 
 // Bake in targetWord and targetDir
 let command = createCommand searchWord (Environment.CurrentDirectory + sprintf "/test_target/%s" datasetName)

@@ -93,14 +93,14 @@ module TrigramIndex =
 
         let files = Directory.EnumerateFiles(targetDir, "*", SearchOption.AllDirectories)
 
-        Measurement.start "trigramMap"
+        Measurement.start "createTrigramMap"
         let trigramMap =
             files
             |> createDistinctTrigrams
             |> Async.RunSynchronously
             |> createTrigramMap
             |> Async.RunSynchronously
-        Measurement.stop "trigramMap"
+        Measurement.stop "createTrigramMap"
 
         printfn "Writing TrigramIndex..."
 
@@ -109,12 +109,6 @@ module TrigramIndex =
         |> writingTrigramMap targetDir
         |> Async.StartImmediate
         Measurement.stop "writingTrigramMap"
-
-        Measurement.showRecord ()
-        |> Seq.map (fun elm ->
-            printfn "%A" elm
-        )
-        |> ignore
 
         printfn "TrigramIndex for %s created" targetDir
 
@@ -183,9 +177,9 @@ module TrigramIndex =
         let fileIndex = FileIndex.loadInverseFileIndex indexDir
         Measurement.stop "fileIndex"
 
-        Measurement.start "trigramMap"
+        Measurement.start "relevantTrigramMap"
         let trigramMap = fetchTrigramIndex indexDir searchWord showFileIds
-        Measurement.stop "trigramMap"
+        Measurement.stop "relevantTrigramMap"
 
         let firstKey = trigramMap.Keys |> Seq.toList |> List.head
 
@@ -210,13 +204,6 @@ module TrigramIndex =
         Measurement.start "SimpleSearch"
         let results = SimpleSearch.searchWordFromFiles searchWord filePaths
         Measurement.stop "SimpleSearch"
-
-        let record = Measurement.showRecord ()
-        (record.Keys, record.Values)
-        ||> Seq.map2 (fun key value ->
-            printfn "%s: %A" key value
-        )
-        |> ignore
 
         results
         
